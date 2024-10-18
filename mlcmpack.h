@@ -28,7 +28,6 @@ typedef enum {
   MORLOC_FLOAT_ARRAY   =  13,
 } morloc_serial_type;
 
-#define TUPLE_EXT_TYPE 0
 #define INITIAL_BUFFER_SIZE 4096
 
 // Forward declarations
@@ -55,7 +54,6 @@ typedef struct ParsedData {
         int sint_val;
         unsigned int uint_val;
         double double_val;
-        char* string_val;
 
         // an array of boxed objects or a tuple
         struct {
@@ -64,6 +62,11 @@ typedef struct ParsedData {
         } array_val;
 
         // primitive arrays
+        struct {
+          size_t size;
+          char* elements;
+        } string_val;
+
         struct {
           size_t size;
           char* elements;
@@ -105,7 +108,7 @@ void free_schema(Schema* schema);
 
 void free_parsed_data(ParsedData* data);
 
-void print_parsed_data(const ParsedData* data);
+void print_parsed_data(const ParsedData* data, int indent);
 void print_schema(const Schema* schema);
 
 // Main unpack function for reading morloc-encoded MessagePack data
@@ -146,7 +149,7 @@ ParsedData* sint_data(int value);
 ParsedData* uint_data(unsigned int value);
 ParsedData* float_data(double value);
 // strings and binary
-ParsedData* string_data(const char* value);
+ParsedData* string_data(const char* value, size_t size);
 ParsedData* binary_data(const char* value, size_t size);
 // unboxed arrays
 ParsedData* array_bool_data(const bool* values, size_t size);
@@ -164,5 +167,7 @@ ParsedData* tuple_data(size_t size);
 ParsedData* map_data(size_t size);
 // helper for setting map elements
 int set_map_element(ParsedData* map, const char* key, ParsedData* value);
+
+void print_hex(const char* data, size_t size);
 
 #endif

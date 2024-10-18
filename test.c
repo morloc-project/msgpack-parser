@@ -1,7 +1,7 @@
 #include "mlcmpack.h"
 
 #define TEST(name) void test_##name()
-#define RUN_TEST(name) do { printf("Running test_%s ... ", #name); test_##name(); printf("passed\n", #name); } while(0)
+#define RUN_TEST(name) do { printf("Running test_%s ... ", #name); test_##name(); printf("\033[0;32mpassed\033[0m\n", #name); } while(0)
 
 // Helper function to compare schemas
 int compare_schemas(const Schema* s1, const Schema* s2) {
@@ -175,10 +175,10 @@ TEST(float_data) {
 }
 
 TEST(string_data) {
-    ParsedData* data = string_data("test");
+    ParsedData* data = string_data("test", 4);
     assert(data != NULL);
     assert(data->type == MORLOC_STRING);
-    assert(strcmp(data->data.string_val, "test") == 0);
+    assert(memcmp(data->data.string_val.elements, "test", 4) == 0);
     free_parsed_data(data);
 }
 
@@ -381,8 +381,8 @@ void test_integer_unpacking(Schema* schema, IntegerTestCase* tests, size_t test_
             assert(data->data.uint_val == (unsigned int)test.expected_value);
         }
         
-        printf("Passed: %s - %s\n", test_type, test.description);
-        
+        printf("%s - %s ... \033[0;32mpassed\033[0m\n", test_type, test.description);
+
         free_parsed_data(data);
     }
 }
@@ -440,6 +440,5 @@ int main() {
     free_schema(sint_schema_obj);
     free_schema(uint_schema_obj);
 
-    printf("All integer unpacking tests passed\n");
     return 0;
 }

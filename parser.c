@@ -37,9 +37,19 @@ int main() {
 
         // Map
         ParsedData* map = map_data(2);
-        set_map_element(map, "a", uint_data(123));
-        set_map_element(map, "b", bool_data(true));
+        set_map_element(map, "ap", uint_data(123));
+        set_map_element(map, "c", bool_data(true));
         tuple->data.array_val.elements[2] = map;
+
+// 92 93
+//       93 01 fe 03
+//       92 2a cb 40 09 1e b8 51 eb 85 1f
+//       82 a2 61 70 7b
+//          a1 63 c3
+//    93 93 01 fe 03 92 2a cb 40 09 1e b8 51 eb 85 1f 82 a2 61 70 7b a1 63 c3
+
+
+        test_data->data.array_val.elements[i] = tuple;
     }
 
     // Pack the data
@@ -54,11 +64,22 @@ int main() {
     }
 
     printf("Packed data size: %zu bytes\n", packed_size);
+    print_hex(packed_data, packed_size);
+
+    // 92 93 93 01 fe 03 92 2a cb 40 09 1e b8 51 eb 85 1f 82 a2 61 70 7b a1 63 c3
+    //    93 93 01 fe 03 92 2a cb 40 09 1e b8 51 eb 85 1f 82 a2 61 70 7b a1 63 c3
+    //                                                      |     k  |v |  k  | v
+
+
+    // 92 93 93 01 fe 03 92 2a cb 40 09 1e b8 51 eb 85 1f 82 a1 61 7b a1 62 c3
+    //    93 93 01 fe 03 92 2a cb 40 09 1e b8 51 eb 85 1f 82 a1 61 7b a1 62 c3
 
     // Unpack the data
     const char* unpack_ptr = packed_data;
     size_t remaining = packed_size;
     ParsedData* unpacked_data = unpack_with_schema(&unpack_ptr, &remaining, big_schema);
+    print_parsed_data(unpacked_data, 0);
+
     if (!unpacked_data) {
         printf("Unpacking failed\n");
         free(packed_data);

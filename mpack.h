@@ -212,4 +212,6 @@ MPACK_API int mpack_unparse(mpack_parser_t *parser,       char **b, size_t *bl, 
 
 MPACK_API void mpack_parser_copy(mpack_parser_t *d, mpack_parser_t *s) FUNUSED FNONULL;
 
+void print_hex(const char* data, size_t size);
+
 #endif  /* MPACK_OBJECT_H */

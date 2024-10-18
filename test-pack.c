@@ -5,7 +5,7 @@
 #include "mlcmpack.h"
 
 #define TEST(name) void test_##name()
-#define RUN_TEST(name) do { printf("Running test_%s ... ", #name); test_##name(); printf("passed\n", #name); } while(0)
+#define RUN_TEST(name) do { printf("Running test_%s ... ", #name); test_##name(); printf("\033[0;32mpassed\033[0m\n", #name); } while(0)
 
 void print_hex(const char* data, size_t size) {
     for (size_t i = 0; i < size; i++) {
@@ -114,7 +114,7 @@ TEST(pack_float) {
 
 TEST(pack_string) {
     Schema* schema = string_schema();
-    ParsedData* data = string_data("hello");
+    ParsedData* data = string_data("hello", 5);
     char* packet = NULL;
     size_t packet_size = 0;
 
@@ -211,8 +211,8 @@ TEST(pack_array_float) {
 
     int result = pack_with_schema(data, schema, &packet, &packet_size);
 
-    printf("packet_size = %zu\n", packet_size);
-    print_hex(packet, packet_size);
+    /* printf("packet_size = %zu\n", packet_size); */
+    /* print_hex(packet, packet_size);             */
     /* 93 cb 3f f1 99 99 99 99 99 9a cb 40 01 99 99 99 99 99 9a cb 40 0a 66 66 66 66 66 66 */
     //  0  1  2  3  4  5  6  7  8  9  a
 
@@ -231,23 +231,21 @@ TEST(pack_tuple) {
     ParsedData* data = tuple_data(3);
     data->data.array_val.elements[0] = sint_data(42);
     data->data.array_val.elements[1] = float_data(3.14);
-    data->data.array_val.elements[2] = string_data("hello");
+    data->data.array_val.elements[2] = string_data("hello", 5);
     char* packet = NULL;
     size_t packet_size = 0;
 
     int result = pack_with_schema(data, schema, &packet, &packet_size);
 
-    printf("packet_size = %zu\n", packet_size);
-    print_hex(packet, packet_size);
+    /* printf("packet_size = %zu\n", packet_size); */
+    /* print_hex(packet, packet_size);             */
 
     assert(result == 0);
-    assert(packet_size == 19);
-    assert((unsigned char)packet[0] == 0xc7); // MessagePack ext
-    assert((unsigned char)packet[1] == 0x03); // number of elements
-    assert((unsigned char)packet[2] == 0x00); // the tuple ext
-    assert((unsigned char)packet[3] == 0x2A); // 42
-    assert((unsigned char)packet[4] == 0xCB); // Start of double
-    assert((unsigned char)packet[13] == 0xA5); // String of length 5
+    assert(packet_size == 17);
+    assert((unsigned char)packet[0] == 0x93); // MessagePack array of lenth 3
+    assert((unsigned char)packet[1] == 0x2A); // 42
+    assert((unsigned char)packet[2] == 0xCB); // Start of double
+    assert((unsigned char)packet[11] == 0xA5); // String of length 5
     free(packet);
 
     free_parsed_data(data);
@@ -260,14 +258,14 @@ TEST(pack_map) {
     Schema* schema = map_schema(2, kvp1, kvp2);
     ParsedData* data = map_data(2);
     set_map_element(data, "key1", sint_data(42));
-    set_map_element(data, "key2", string_data("value"));
+    set_map_element(data, "key2", string_data("value", 5));
     char* packet = NULL;
     size_t packet_size = 0;
 
     int result = pack_with_schema(data, schema, &packet, &packet_size);
 
-    printf("packet_size = %zu\n", packet_size);
-    print_hex(packet, packet_size);
+    /* printf("packet_size = %zu\n", packet_size); */
+    /* print_hex(packet, packet_size);             */
     /* 82 a4 6b 65 79 31 2a a4 6b 65 79 32 a5 76 61 6c 75 65 */
     // 0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f  10 11
     //   |   k  e  y  1 |42|   k  e  y  2 |   v  a  l  u  e
