@@ -666,7 +666,7 @@ int pack_data(
             write_to_packet((void*)key, packet, packet_ptr, packet_remaining, key_len);
 
             // write value
-            pack_data(data->data.map_val.elements[i], schema->parameters[0], packet, packet_ptr, packet_remaining, tokbuf);
+            pack_data(data->data.map_val.elements[i], schema->parameters[i], packet, packet_ptr, packet_remaining, tokbuf);
         }
     }
 

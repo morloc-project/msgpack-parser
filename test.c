@@ -1,7 +1,7 @@
 #include "mlcmpack.h"
 
 #define TEST(name) void test_##name()
-#define RUN_TEST(name) do { printf("Running test_%s...\n", #name); test_##name(); printf("test_%s passed!\n\n", #name); } while(0)
+#define RUN_TEST(name) do { printf("Running test_%s ... ", #name); test_##name(); printf("passed\n", #name); } while(0)
 
 // Helper function to compare schemas
 int compare_schemas(const Schema* s1, const Schema* s2) {
@@ -421,6 +421,8 @@ int main() {
     RUN_TEST(unpack_with_schema);
     RUN_TEST(pack_with_schema);
 
+    printf("\n");
+
     // integer testing
     Schema* sint_schema_obj = sint_schema();
     Schema* uint_schema_obj = uint_schema();
@@ -438,6 +440,6 @@ int main() {
     free_schema(sint_schema_obj);
     free_schema(uint_schema_obj);
 
-    printf("\nAll integer unpacking tests passed!\n");
+    printf("All integer unpacking tests passed\n");
     return 0;
 }
