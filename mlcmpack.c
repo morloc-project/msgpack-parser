@@ -63,6 +63,7 @@ SchemaKeyValuePair* kvp_schema(const char* key, Schema* value) {
     SchemaKeyValuePair* kvp = malloc(sizeof(SchemaKeyValuePair));
     if (!kvp) return NULL;
     
+    // this is a NEW pointer, so need to free this later
     kvp->key = strdup(key);
     if (!kvp->key) {
         free(kvp);
@@ -104,6 +105,7 @@ Schema* array_schema(Schema* array_type) {
 }
 
 // Implementation of map function
+// This function eats its keys
 Schema* map_schema(size_t size, ...) {
     va_list args;
     va_start(args, size);
@@ -120,9 +122,10 @@ Schema* map_schema(size_t size, ...) {
 
     for (size_t i = 0; i < size; i++) {
         SchemaKeyValuePair* kvp = va_arg(args, SchemaKeyValuePair*);
-        keys[i] = strdup(kvp->key);
+        // here I am passing ownership, the schema will free these
+        keys[i] = kvp->key;
         params[i] = kvp->value;
-        free(kvp->key);
+        // only free kvp
         free(kvp);
     }
 
@@ -237,7 +240,16 @@ ParsedData* array_data(size_t size) {
 
 // Helper function for tuples
 ParsedData* tuple_data(size_t size) {
-    return array_data(size);  // Tuples are structurally similar to arrays
+    ParsedData* data = create_parsed_data(MORLOC_TUPLE);
+    if (data) {
+        data->data.array_val.size = size;
+        data->data.array_val.elements = (ParsedData**)calloc(size, sizeof(ParsedData*));
+        if (!data->data.array_val.elements) {
+            free(data);
+            return NULL;
+        }
+    }
+    return data;
 }
 
 // Helper function for maps
@@ -364,9 +376,10 @@ int set_map_element(ParsedData* map, const char* key, ParsedData* value) {
     }
     for (size_t i = 0; i < map->data.map_val.size; i++) {
         if (!map->data.map_val.keys[i]) {
+            // map copies the key
             map->data.map_val.keys[i] = strdup(key);
+            // map takes ownership of value and wil free later
             map->data.map_val.elements[i] = value;
-            free(value);  // Free the original value as it's now copied
             return 1;  // Success
         }
     }
@@ -664,12 +677,13 @@ ParsedData* unpack_with_schema(const char** buf_ptr, size_t* buf_remaining, cons
             result = bool_data(mpack_unpack_boolean(token));
             break;
         case MORLOC_SINT:
-            if (token.type != MPACK_TOKEN_SINT) return NULL;
-            result = sint_data(mpack_unpack_sint(token));
+            // mpack won't always get this right since there is overlap
+            if (!(token.type == MPACK_TOKEN_SINT || token.type == MPACK_TOKEN_UINT)) return NULL;
+            result = sint_data(mpack_unpack_number(token));
             break;
         case MORLOC_UINT:
-            if (token.type != MPACK_TOKEN_UINT) return NULL;
-            result = uint_data(mpack_unpack_uint(token));
+            if (!(token.type == MPACK_TOKEN_SINT || token.type == MPACK_TOKEN_UINT)) return NULL;
+            result = uint_data(mpack_unpack_number(token));
             break;
         case MORLOC_FLOAT:
             if (token.type != MPACK_TOKEN_FLOAT) return NULL;
