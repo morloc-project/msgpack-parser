@@ -458,46 +458,62 @@ void free_parsed_data(ParsedData* data) {
 }
 
 
-#define INITIAL_BUFFER_SIZE 4096
+#define BUFFER_SIZE 4096
 
-// Helper function to resize the packet buffer
-char* resize_buffer(char* buf, size_t* current_size, size_t needed_size) {
-    if (needed_size <= *current_size) {
-        return buf;
+void upsize(
+  char** data,            // data that will be resized
+  char** data_ptr,        // pointer that will be updated to preserve offset
+  size_t* remaining_size, // remaining data size
+  size_t added_size       // the number of bytes that need to be added
+){
+    // check if any action is needed
+    if (added_size <= *remaining_size) {
+        return;
     }
-    while (*current_size < needed_size) {
-        if (*current_size > SIZE_MAX / 2) {
-            *current_size += INITIAL_BUFFER_SIZE;
+
+    size_t used_size = *data_ptr - *data;
+    size_t buffer_size = used_size + *remaining_size;
+
+    // find an appropriate size for the new data
+    while (added_size < *remaining_size) {
+        if (buffer_size > SIZE_MAX / 2) {
+            buffer_size += BUFFER_SIZE;
         } else {
-            *current_size *= 2;
+            buffer_size *= 2;
         }
+        *remaining_size = buffer_size - used_size;
     }
-    char* new_buf = (char*)realloc(buf, *current_size);
-    if (new_buf == NULL) {
-        free(buf);
-        return NULL;
-    }
-    return new_buf;
+
+    // allocate memory for the new data
+    *data = (char*)realloc(*data, buffer_size);
+
+    // point old pointer to the same offset in the new data
+    *data_ptr = *data + used_size;
 }
 
-// Helper function to write data to the packet
-void write_to_packet(char** packet, size_t* packet_size, size_t* current_buffer_size, const char* data, size_t size) {
-    *packet = resize_buffer(*packet, current_buffer_size, *packet_size + size);
-    if (*packet == NULL) return;
-    memcpy(*packet + *packet_size, data, size);
-    *packet_size += size;
+void write_to_packet(
+  void* src,                // source data
+  char** packet,            // destination
+  char** packet_ptr,        // location in the destination that will be written to
+  size_t* packet_remaining, // remaining data size
+  size_t size               // the number of bytes to write
+
+){
+    upsize(packet, packet_ptr, packet_remaining, size);
+    memcpy(*packet_ptr, src, size);
+    *packet_ptr += size;
+    *packet_remaining -= size;
 }
 
-// Forward declaration of pack_data function
+
+
+// The main function for writing MessagePack
 int pack_data(
-  const ParsedData* data,
-  const Schema* schema,
-  char** packet,
-  size_t* packet_size,
-  size_t* current_buffer_size,
-  char* buffer,
-  char** buf_ptr,
-  size_t* buf_remaining,
+  const ParsedData* data,    // input data structure
+  const Schema* schema,      // input data schema
+  char** packet,             // a pointer to the messagepack data
+  char** packet_ptr,         // the current position in the buffer
+  size_t* packet_remaining,  // bytes from current position to the packet end
   mpack_tokbuf_t* tokbuf
 ) {
     mpack_token_t token;
@@ -540,60 +556,30 @@ int pack_data(
             break;
     }
 
-    result = mpack_write(tokbuf, buf_ptr, buf_remaining, &token);
-    if (result == MPACK_EOF || *buf_remaining == 0) {
-        write_to_packet(packet, packet_size, current_buffer_size, buffer, INITIAL_BUFFER_SIZE - *buf_remaining);
-        *buf_ptr = buffer;
-        *buf_remaining = INITIAL_BUFFER_SIZE;
+    mpack_write(tokbuf, packet_ptr, packet_remaining, &token);
+    if (result == MPACK_EOF || *packet_remaining == 0) {
+        upsize(packet, packet_ptr, packet_remaining, token.length);
         if (result == MPACK_EOF) {
-            mpack_write(tokbuf, buf_ptr, buf_remaining, &token);
+            mpack_write(tokbuf, packet_ptr, packet_remaining, &token);
         }
     }
 
     // Write additional data for strings, binaries, arrays, maps, and tuples
     if (schema->type == MORLOC_STRING) {
+        // NOTE: strlen does not include NULL
         size_t len = strlen(data->data.string_val);
-        const char* bytes = data->data.string_val;
-        while (len > 0) {
-            size_t chunk_size = (len < *buf_remaining) ? len : *buf_remaining;
-            memcpy(*buf_ptr, bytes, chunk_size);
-            *buf_ptr += chunk_size;
-            *buf_remaining -= chunk_size;
-            bytes += chunk_size;
-            len -= chunk_size;
-            if (*buf_remaining == 0) {
-                write_to_packet(packet, packet_size, current_buffer_size, buffer, INITIAL_BUFFER_SIZE);
-                *buf_ptr = buffer;
-                *buf_remaining = INITIAL_BUFFER_SIZE;
-            }
-        }
+        write_to_packet((void*)data->data.string_val, packet, packet_ptr, packet_remaining, len);
     } else if (schema->type == MORLOC_BINARY) {
         size_t len = data->data.binary_val.size;
-        const char* bytes = data->data.binary_val.elements;
-        while (len > 0) {
-            size_t chunk_size = (len < *buf_remaining) ? len : *buf_remaining;
-            memcpy(*buf_ptr, bytes, chunk_size);
-            *buf_ptr += chunk_size;
-            *buf_remaining -= chunk_size;
-            bytes += chunk_size;
-            len -= chunk_size;
-            if (*buf_remaining == 0) {
-                write_to_packet(packet, packet_size, current_buffer_size, buffer, INITIAL_BUFFER_SIZE);
-                *buf_ptr = buffer;
-                *buf_remaining = INITIAL_BUFFER_SIZE;
-            }
-        }
+        write_to_packet((void*)data->data.binary_val.elements, packet, packet_ptr, packet_remaining, len);
     } else if ( schema->type == MORLOC_ARRAY) {
         for (size_t i = 0; i < data->data.array_val.size; i++) {
             pack_data(
               data->data.array_val.elements[i],
               schema->parameters[0],
               packet,
-              packet_size,
-              current_buffer_size,
-              buffer,
-              buf_ptr,
-              buf_remaining,
+              packet_ptr,
+              packet_remaining,
               tokbuf
             );
         }
@@ -642,13 +628,11 @@ int pack_data(
                 break;
             }
 
-            result = mpack_write(tokbuf, buf_ptr, buf_remaining, &token);
-            if (result == MPACK_EOF || *buf_remaining == 0) {
-                write_to_packet(packet, packet_size, current_buffer_size, buffer, INITIAL_BUFFER_SIZE - *buf_remaining);
-                *buf_ptr = buffer;
-                *buf_remaining = INITIAL_BUFFER_SIZE;
+            result = mpack_write(tokbuf, packet_ptr, packet_remaining, &token);
+            if (result == MPACK_EOF || *packet_remaining == 0) {
+                upsize(packet, packet_ptr, packet_remaining, token.length);
                 if (result == MPACK_EOF) {
-                    mpack_write(tokbuf, buf_ptr, buf_remaining, &token);
+                    mpack_write(tokbuf, packet_ptr, packet_remaining, &token);
                 }
             }
         }
@@ -658,36 +642,31 @@ int pack_data(
               data->data.array_val.elements[i],
               schema->parameters[i],
               packet,
-              packet_size,
-              current_buffer_size,
-              buffer,
-              buf_ptr,
-              buf_remaining,
+              packet_ptr,
+              packet_remaining,
               tokbuf
             );
         }
     } else if (schema->type == MORLOC_MAP) {
         for (size_t i = 0; i < data->data.map_val.size; i++) {
-            // Pack key
-            token = mpack_pack_str(strlen(data->data.map_val.keys[i]));
-            mpack_write(tokbuf, buf_ptr, buf_remaining, &token);
-            const char* key = data->data.map_val.keys[i];
+            char* key = data->data.map_val.keys[i];
             size_t key_len = strlen(key);
-            while (key_len > 0) {
-                size_t chunk_size = (key_len < *buf_remaining) ? key_len : *buf_remaining;
-                memcpy(*buf_ptr, key, chunk_size);
-                *buf_ptr += chunk_size;
-                *buf_remaining -= chunk_size;
-                key += chunk_size;
-                key_len -= chunk_size;
-                if (*buf_remaining == 0) {
-                    write_to_packet(packet, packet_size, current_buffer_size, buffer, INITIAL_BUFFER_SIZE);
-                    *buf_ptr = buffer;
-                    *buf_remaining = INITIAL_BUFFER_SIZE;
+
+            // write key string token
+            token = mpack_pack_str(key_len);
+            result = mpack_write(tokbuf, packet_ptr, packet_remaining, &token);
+            if (result == MPACK_EOF || *packet_remaining == 0) {
+                upsize(packet, packet_ptr, packet_remaining, token.length);
+                if (result == MPACK_EOF) {
+                    mpack_write(tokbuf, packet_ptr, packet_remaining, &token);
                 }
             }
-            // Pack value
-            pack_data(data->data.map_val.elements[i], schema->parameters[0], packet, packet_size, current_buffer_size, buffer, buf_ptr, buf_remaining, tokbuf);
+
+            // write string bytes
+            write_to_packet((void*)key, packet, packet_ptr, packet_remaining, key_len);
+
+            // write value
+            pack_data(data->data.map_val.elements[i], schema->parameters[0], packet, packet_ptr, packet_remaining, tokbuf);
         }
     }
 
@@ -696,35 +675,25 @@ int pack_data(
 
 int pack_with_schema(const ParsedData* data, const Schema* schema, char** packet, size_t* packet_size) {
     *packet_size = 0;
-    size_t current_buffer_size = INITIAL_BUFFER_SIZE;
-    *packet = (char*)malloc(INITIAL_BUFFER_SIZE * sizeof(char));
+    *packet = (char*)malloc(BUFFER_SIZE * sizeof(char));
     if (*packet == NULL) return 1;
+    size_t packet_remaining = BUFFER_SIZE;
+    char* packet_ptr = *packet;
 
-    char buffer[INITIAL_BUFFER_SIZE];
-    char *buf_ptr = buffer;
-    size_t buf_remaining = INITIAL_BUFFER_SIZE;
     mpack_tokbuf_t tokbuf;
     mpack_tokbuf_init(&tokbuf);
 
-    int pack_result = pack_data(data, schema, packet, packet_size, &current_buffer_size, buffer, &buf_ptr, &buf_remaining, &tokbuf);
-    if (pack_result != 0){
-      return pack_result;
-    }
+    int pack_result = pack_data(data, schema, packet, &packet_ptr, &packet_remaining, &tokbuf);
 
-    // Write any remaining data
-    if (buf_remaining < INITIAL_BUFFER_SIZE) {
-        write_to_packet(packet, packet_size, &current_buffer_size, buffer, INITIAL_BUFFER_SIZE - buf_remaining);
-    }
+    // mutate packet_size (will be used outside)
+    *packet_size = packet_ptr - *packet;
 
     // Trim the output buffer to the exact size needed
-    if (current_buffer_size > *packet_size) {
-        char* new_packet = (char*)realloc(*packet, *packet_size);
-        if (new_packet != NULL) {
-            *packet = new_packet;
-        }
+    if (packet_remaining > 0) {
+        *packet = (char*)realloc(*packet, *packet_size);
     }
 
-    return 0;
+    return pack_result;
 }
 
 

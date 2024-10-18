@@ -426,13 +426,13 @@ int main() {
     Schema* uint_schema_obj = uint_schema();
 
     printf("Testing signed integers:\n");
-    test_integer_unpacking(sint_schema_obj, signed_integer_tests, 
-                           sizeof(signed_integer_tests) / sizeof(IntegerTestCase), 
+    test_integer_unpacking(sint_schema_obj, signed_integer_tests,
+                           sizeof(signed_integer_tests) / sizeof(IntegerTestCase),
                            "Signed");
 
     printf("\nTesting unsigned integers:\n");
-    test_integer_unpacking(uint_schema_obj, unsigned_integer_tests, 
-                           sizeof(unsigned_integer_tests) / sizeof(IntegerTestCase), 
+    test_integer_unpacking(uint_schema_obj, unsigned_integer_tests,
+                           sizeof(unsigned_integer_tests) / sizeof(IntegerTestCase),
                            "Unsigned");
 
     free_schema(sint_schema_obj);
