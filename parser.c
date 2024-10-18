@@ -122,14 +122,14 @@ int main() {
     }
 
     // Compare the original and unpacked data
-    if (test_data->type == unpacked_data->type && 
+    if (test_data->type == unpacked_data->type &&
         test_data->data.uint_val == unpacked_data->data.uint_val) {
         printf("Test passed: Packed and unpacked data match\n");
-        printf("Original value: %u, Unpacked value: %u\n", 
+        printf("Original value: %u, Unpacked value: %u\n",
                test_data->data.uint_val, unpacked_data->data.uint_val);
     } else {
         printf("Test failed: Packed and unpacked data do not match\n");
-        printf("Original value: %u, Unpacked value: %u\n", 
+        printf("Original value: %u, Unpacked value: %u\n",
                test_data->data.uint_val, unpacked_data->data.uint_val);
     }
 

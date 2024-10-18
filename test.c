@@ -57,7 +57,7 @@ TEST(bool_array_schema) {
     Schema* schema = bool_array_schema();
     assert(schema != NULL);
     assert(schema->type == MORLOC_BOOL_ARRAY);
-    assert(schema->size == 0);
+    assert(schema->size == 1);
     free_schema(schema);
 }
 
@@ -65,7 +65,7 @@ TEST(sint_array_schema) {
     Schema* schema = sint_array_schema();
     assert(schema != NULL);
     assert(schema->type == MORLOC_SINT_ARRAY);
-    assert(schema->size == 0);
+    assert(schema->size == 1);
     free_schema(schema);
 }
 
@@ -73,7 +73,7 @@ TEST(uint_array_schema) {
     Schema* schema = uint_array_schema();
     assert(schema != NULL);
     assert(schema->type == MORLOC_UINT_ARRAY);
-    assert(schema->size == 0);
+    assert(schema->size == 1);
     free_schema(schema);
 }
 
@@ -81,7 +81,7 @@ TEST(float_array_schema) {
     Schema* schema = float_array_schema();
     assert(schema != NULL);
     assert(schema->type == MORLOC_FLOAT_ARRAY);
-    assert(schema->size == 0);
+    assert(schema->size == 1);
     free_schema(schema);
 }
 

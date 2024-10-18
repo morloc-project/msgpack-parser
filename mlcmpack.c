@@ -42,19 +42,27 @@ Schema* binary_schema() {
 }
 
 Schema* bool_array_schema() {
-    return create_schema_with_params(MORLOC_BOOL_ARRAY, 0, NULL, NULL);
+    Schema** params = (Schema**)malloc(sizeof(Schema*));
+    params[0] = bool_schema();
+    return create_schema_with_params(MORLOC_BOOL_ARRAY, 1, params, NULL);
 }
 
 Schema* sint_array_schema() {
-    return create_schema_with_params(MORLOC_SINT_ARRAY, 0, NULL, NULL);
+    Schema** params = (Schema**)malloc(sizeof(Schema*));
+    params[0] = sint_schema();
+    return create_schema_with_params(MORLOC_SINT_ARRAY, 1, params, NULL);
 }
 
 Schema* uint_array_schema() {
-    return create_schema_with_params(MORLOC_UINT_ARRAY, 0, NULL, NULL);
+    Schema** params = (Schema**)malloc(sizeof(Schema*));
+    params[0] = uint_schema();
+    return create_schema_with_params(MORLOC_UINT_ARRAY, 1, params, NULL);
 }
 
 Schema* float_array_schema() {
-    return create_schema_with_params(MORLOC_FLOAT_ARRAY, 0, NULL, NULL);
+    Schema** params = (Schema**)malloc(sizeof(Schema*));
+    params[0] = float_schema();
+    return create_schema_with_params(MORLOC_FLOAT_ARRAY, 1, params, NULL);
 }
 
 
@@ -453,31 +461,28 @@ void free_parsed_data(ParsedData* data) {
 #define INITIAL_BUFFER_SIZE 4096
 
 // Helper function to resize the packet buffer
-char* resize_buffer(char* buf, size_t current_size, size_t needed_size, size_t* new_size) {
-    if (needed_size <= current_size) {
-        *new_size = current_size;
+char* resize_buffer(char* buf, size_t* current_size, size_t needed_size) {
+    if (needed_size <= *current_size) {
         return buf;
     }
-    size_t target_size = current_size;
-    while (target_size < needed_size) {
-        if (target_size > SIZE_MAX / 2) {
-            target_size += INITIAL_BUFFER_SIZE;
+    while (*current_size < needed_size) {
+        if (*current_size > SIZE_MAX / 2) {
+            *current_size += INITIAL_BUFFER_SIZE;
         } else {
-            target_size *= 2;
+            *current_size *= 2;
         }
     }
-    char* new_buf = (char*)realloc(buf, target_size);
+    char* new_buf = (char*)realloc(buf, *current_size);
     if (new_buf == NULL) {
         free(buf);
         return NULL;
     }
-    *new_size = target_size;
     return new_buf;
 }
 
 // Helper function to write data to the packet
 void write_to_packet(char** packet, size_t* packet_size, size_t* current_buffer_size, const char* data, size_t size) {
-    *packet = resize_buffer(*packet, *current_buffer_size, *packet_size + size, current_buffer_size);
+    *packet = resize_buffer(*packet, current_buffer_size, *packet_size + size);
     if (*packet == NULL) return;
     memcpy(*packet + *packet_size, data, size);
     *packet_size += size;
@@ -578,18 +583,88 @@ int pack_data(
                 *buf_remaining = INITIAL_BUFFER_SIZE;
             }
         }
-    } else if ( schema->type == MORLOC_ARRAY ||
-                schema->type == MORLOC_BOOL_ARRAY ||
+    } else if ( schema->type == MORLOC_ARRAY) {
+        for (size_t i = 0; i < data->data.array_val.size; i++) {
+            pack_data(
+              data->data.array_val.elements[i],
+              schema->parameters[0],
+              packet,
+              packet_size,
+              current_buffer_size,
+              buffer,
+              buf_ptr,
+              buf_remaining,
+              tokbuf
+            );
+        }
+    } else if ( schema->type == MORLOC_BOOL_ARRAY ||
                 schema->type == MORLOC_SINT_ARRAY ||
                 schema->type == MORLOC_UINT_ARRAY ||
-                schema->type == MORLOC_FLOAT_ARRAY
-        ) {
-        for (size_t i = 0; i < data->data.array_val.size; i++) {
-            pack_data(data->data.array_val.elements[i], schema->parameters[0], packet, packet_size, current_buffer_size, buffer, buf_ptr, buf_remaining, tokbuf);
+                schema->type == MORLOC_FLOAT_ARRAY ) {
+
+        mpack_token_t token;
+
+        size_t size;
+
+        switch(schema->type){
+          case MORLOC_BOOL_ARRAY:
+            size = data->data.array_bool_val.size;
+            break;
+          case MORLOC_SINT_ARRAY:
+            size = data->data.array_sint_val.size;
+            break;
+          case MORLOC_UINT_ARRAY:
+            size = data->data.array_uint_val.size;
+            break;
+          case MORLOC_FLOAT_ARRAY:
+            size = data->data.array_float_val.size;
+            break;
+          default:
+            break;
+        }
+
+        for (size_t i = 0; i < size; i++){
+
+            switch(schema->type){
+              case MORLOC_BOOL_ARRAY:
+                token = mpack_pack_boolean(data->data.array_bool_val.elements[i]);
+                break;
+              case MORLOC_SINT_ARRAY:
+                token = mpack_pack_sint(data->data.array_sint_val.elements[i]);
+                break;
+              case MORLOC_UINT_ARRAY:
+                token = mpack_pack_uint(data->data.array_uint_val.elements[i]);
+                break;
+              case MORLOC_FLOAT_ARRAY:
+                token = mpack_pack_float(data->data.array_float_val.elements[i]);
+                break;
+              default:
+                break;
+            }
+
+            result = mpack_write(tokbuf, buf_ptr, buf_remaining, &token);
+            if (result == MPACK_EOF || *buf_remaining == 0) {
+                write_to_packet(packet, packet_size, current_buffer_size, buffer, INITIAL_BUFFER_SIZE - *buf_remaining);
+                *buf_ptr = buffer;
+                *buf_remaining = INITIAL_BUFFER_SIZE;
+                if (result == MPACK_EOF) {
+                    mpack_write(tokbuf, buf_ptr, buf_remaining, &token);
+                }
+            }
         }
     } else if (schema->type == MORLOC_TUPLE) {
         for (size_t i = 0; i < schema->size; i++) {
-            pack_data(data->data.array_val.elements[i], schema->parameters[i], packet, packet_size, current_buffer_size, buffer, buf_ptr, buf_remaining, tokbuf);
+            pack_data(
+              data->data.array_val.elements[i],
+              schema->parameters[i],
+              packet,
+              packet_size,
+              current_buffer_size,
+              buffer,
+              buf_ptr,
+              buf_remaining,
+              tokbuf
+            );
         }
     } else if (schema->type == MORLOC_MAP) {
         for (size_t i = 0; i < data->data.map_val.size; i++) {
