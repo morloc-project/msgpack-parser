@@ -1,21 +1,8 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <assert.h>
 #include "mlcmpack.h"
 
 #define TEST(name) void test_##name()
 #define RUN_TEST(name) do { printf("Running test_%s ... ", #name); test_##name(); printf("\033[0;32mpassed\033[0m\n", #name); } while(0)
-
-void print_hex(const char* data, size_t size) {
-    for (size_t i = 0; i < size; i++) {
-        printf("%02x", (unsigned char)data[i]);
-        if (i < size - 1) {
-            printf(" ");
-        }
-    }
-    printf("\n");
-}
 
 TEST(pack_nil) {
     Schema* schema = nil_schema();
@@ -56,9 +43,9 @@ TEST(pack_bool) {
 }
 
 TEST(pack_sint) {
-    Schema* schema = sint_schema();
-    ParsedData* data_positive = sint_data(42);
-    ParsedData* data_negative = sint_data(-42);
+    Schema* schema = int_schema();
+    ParsedData* data_positive = int_data(42);
+    ParsedData* data_negative = int_data(-42);
     char* packet = NULL;
     size_t packet_size = 0;
 
@@ -80,8 +67,8 @@ TEST(pack_sint) {
 }
 
 TEST(pack_uint) {
-    Schema* schema = uint_schema();
-    ParsedData* data = uint_data(300);
+    Schema* schema = int_schema();
+    ParsedData* data = int_data(300);
     char* packet = NULL;
     size_t packet_size = 0;
 
@@ -166,9 +153,9 @@ TEST(pack_array_bool) {
 }
 
 TEST(pack_array_sint) {
-    Schema* schema = sint_array_schema();
+    Schema* schema = int_array_schema();
     int values[] = {1, -2, 3};
-    ParsedData* data = array_sint_data(values, 3);
+    ParsedData* data = array_int_data(values, 3);
     char* packet = NULL;
     size_t packet_size = 0;
 
@@ -184,9 +171,9 @@ TEST(pack_array_sint) {
 }
 
 TEST(pack_array_uint) {
-    Schema* schema = uint_array_schema();
+    Schema* schema = int_array_schema();
     unsigned int values[] = {1, 2, 300};
-    ParsedData* data = array_uint_data(values, 3);
+    ParsedData* data = array_int_data(values, 3);
     char* packet = NULL;
     size_t packet_size = 0;
 
@@ -227,11 +214,11 @@ TEST(pack_array_float) {
 }
 
 TEST(pack_tuple) {
-    Schema* schema = tuple_schema(3, sint_schema(), float_schema(), string_schema());
-    ParsedData* data = tuple_data(3);
-    data->data.array_val.elements[0] = sint_data(42);
-    data->data.array_val.elements[1] = float_data(3.14);
-    data->data.array_val.elements[2] = string_data("hello", 5);
+    Schema* schema = tuple_schema(3, int_schema(), float_schema(), string_schema());
+    ParsedData* data = tuple_data_(3);
+    data->data.obj_arr[0] = int_data(42);
+    data->data.obj_arr[1] = float_data(3.14);
+    data->data.obj_arr[2] = string_data("hello", 5);
     char* packet = NULL;
     size_t packet_size = 0;
 
@@ -253,12 +240,12 @@ TEST(pack_tuple) {
 }
 
 TEST(pack_map) {
-    SchemaKeyValuePair* kvp1 = kvp_schema("key1", sint_schema());
+    SchemaKeyValuePair* kvp1 = kvp_schema("key1", int_schema());
     SchemaKeyValuePair* kvp2 = kvp_schema("key2", string_schema());
     Schema* schema = map_schema(2, kvp1, kvp2);
-    ParsedData* data = map_data(2);
-    set_map_element(data, "key1", sint_data(42));
-    set_map_element(data, "key2", string_data("value", 5));
+    ParsedData* data = map_data_(2);
+    set_map_element(data, 0, "key1", int_data(42));
+    set_map_element(data, 1, "key2", string_data("value", 5));
     char* packet = NULL;
     size_t packet_size = 0;
 
@@ -279,8 +266,8 @@ TEST(pack_map) {
 }
 
 TEST(pack_empty_array) {
-    Schema* schema = array_schema(sint_schema());
-    ParsedData* data = array_data(0);
+    Schema* schema = array_schema(int_schema());
+    ParsedData* data = array_data_(0);
     char* packet = NULL;
     size_t packet_size = 0;
 
@@ -296,7 +283,7 @@ TEST(pack_empty_array) {
 
 TEST(pack_empty_map) {
     Schema* schema = map_schema(0);
-    ParsedData* data = map_data(0);
+    ParsedData* data = map_data_(0);
     char* packet = NULL;
     size_t packet_size = 0;
 

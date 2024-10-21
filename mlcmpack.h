@@ -14,21 +14,28 @@
 typedef enum {
   MORLOC_NIL           =  0,
   MORLOC_BOOL          =  1,
-  MORLOC_SINT          =  2,
-  MORLOC_UINT          =  3,
-  MORLOC_FLOAT         =  4,
-  MORLOC_STRING        =  5,
-  MORLOC_BINARY        =  6,
-  MORLOC_ARRAY         =  7,
-  MORLOC_MAP           =  8,
-  MORLOC_TUPLE         =  9,
-  MORLOC_BOOL_ARRAY    =  10,
-  MORLOC_SINT_ARRAY    =  11,
-  MORLOC_UINT_ARRAY    =  12,
-  MORLOC_FLOAT_ARRAY   =  13,
+  MORLOC_INT           =  2,
+  MORLOC_FLOAT         =  3,
+  MORLOC_STRING        =  4,
+  MORLOC_BINARY        =  5,
+  MORLOC_ARRAY         =  6,
+  MORLOC_MAP           =  7,
+  MORLOC_TUPLE         =  8,
+  MORLOC_BOOL_ARRAY    =  9,
+  MORLOC_INT_ARRAY     =  10,
+  MORLOC_FLOAT_ARRAY   =  11,
+  MORLOC_EXT           =  12
 } morloc_serial_type;
 
-#define INITIAL_BUFFER_SIZE 4096
+#define BUFFER_SIZE 4096
+
+// The maximum nesting depth of a data structure. This should be deep enough for
+// any non-recursive datastructure. For recursive structures, trees and such, I
+// will make a dedicated function that does not depend on this limit. This
+// function would use a linked list for the stack instead of an array. The
+// downside of the linked list is that it must live on the heap and will be
+// slower.
+#define MAX_DEPTH 128
 
 // Forward declarations
 struct Schema;
@@ -45,59 +52,22 @@ typedef struct Schema {
     char** keys; // field names, used only for records
 } Schema;
 
-// Parsed data structure
+// A data structure that stores anything representable by MessagePack
+// The morloc pools will need to transform their data to/from this form
 typedef struct ParsedData {
     morloc_serial_type type;
+    size_t size; // 0 for primitives, array length for containers
+    char* key; // NULL terminated string, used for names of elements in maps
     union {
         char nil_val; // set to 0x00, but the actual value will not be used
         bool bool_val;
-        int sint_val;
-        unsigned int uint_val;
+        int int_val;
         double double_val;
-
-        // an array of boxed objects or a tuple
-        struct {
-          size_t size;
-          struct ParsedData** elements;
-        } array_val;
-
-        // primitive arrays
-        struct {
-          size_t size;
-          char* elements;
-        } string_val;
-
-        struct {
-          size_t size;
-          char* elements;
-        } binary_val;
-
-        struct {
-          size_t size;
-          bool* elements;
-        } array_bool_val;
-
-        struct {
-          size_t size;
-          int* elements;
-        } array_sint_val;
-
-        struct {
-          size_t size;
-          unsigned int* elements;
-        } array_uint_val;
-
-        struct {
-          size_t size;
-          double* elements;
-        } array_float_val;
-
-        // a map
-        struct {
-          size_t size;
-          char** keys;
-          struct ParsedData** elements;
-        } map_val;
+        char* char_arr; // bytes, strings, and extensions
+        bool* bool_arr;
+        int* int_arr;
+        double* float_arr;
+        struct ParsedData** obj_arr; // general arrays, tuples, and maps
     } data;
 } ParsedData;
 
@@ -108,7 +78,7 @@ void free_schema(Schema* schema);
 
 void free_parsed_data(ParsedData* data);
 
-void print_parsed_data(const ParsedData* data, int indent);
+// void print_parsed_data(const ParsedData* data, int indent);
 void print_schema(const Schema* schema);
 
 // Main unpack function for reading morloc-encoded MessagePack data
@@ -127,12 +97,10 @@ typedef struct {
 // schema constructors
 Schema* nil_schema();
 Schema* bool_schema();
-Schema* sint_schema();
-Schema* uint_schema();
+Schema* int_schema();
 Schema* float_schema();
 Schema* bool_array_schema();
-Schema* sint_array_schema();
-Schema* uint_array_schema();
+Schema* int_array_schema();
 Schema* float_array_schema();
 Schema* string_schema();
 Schema* binary_schema();
@@ -145,29 +113,27 @@ Schema* map_schema(size_t size, ...);
 // create atomic values
 ParsedData* nil_data();
 ParsedData* bool_data(bool value);
-ParsedData* sint_data(int value);
-ParsedData* uint_data(unsigned int value);
+ParsedData* int_data(int value);
 ParsedData* float_data(double value);
 // strings and binary
 ParsedData* string_data(const char* value, size_t size);
 ParsedData* binary_data(const char* value, size_t size);
 // unboxed arrays
 ParsedData* array_bool_data(const bool* values, size_t size);
-ParsedData* array_sint_data(const int* values, size_t size);
-ParsedData* array_uint_data(const unsigned int* values, size_t size);
+ParsedData* array_int_data(const int* values, size_t size);
 ParsedData* array_float_data(const double* values, size_t size);
 // unboxed uninitialized arrays
 ParsedData* array_bool_data_(size_t size);
-ParsedData* array_sint_data_(size_t size);
-ParsedData* array_uint_data_(size_t size);
+ParsedData* array_int_data_(size_t size);
 ParsedData* array_float_data_(size_t size);
 // containers, set elements individually
-ParsedData* array_data(size_t size);
-ParsedData* tuple_data(size_t size);
-ParsedData* map_data(size_t size);
+ParsedData* array_data_(size_t size);
+ParsedData* tuple_data_(size_t size);
+ParsedData* map_data_(size_t size);
 // helper for setting map elements
-int set_map_element(ParsedData* map, const char* key, ParsedData* value);
+void set_map_element(ParsedData* map, size_t pos, const char* key, ParsedData* value);
 
 void print_hex(const char* data, size_t size);
+void write_tokens(const char** buf_ptr, size_t* buf_remaining);
 
 #endif
