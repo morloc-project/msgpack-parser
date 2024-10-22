@@ -11,7 +11,6 @@ void print_hex(const char* data, size_t size) {
     }
 }
 
-
 // Helper function to create a schema with parameters
 Schema* create_schema_with_params(morloc_serial_type type, int size, Schema** params, char** keys) {
     Schema* schema = malloc(sizeof(Schema));
@@ -486,13 +485,12 @@ int pack_data(
         case MORLOC_INT_ARRAY:
         case MORLOC_FLOAT_ARRAY:
         case MORLOC_ARRAY:
+        case MORLOC_TUPLE:
+            // these all start with the same array bytes
             token = mpack_pack_array(data->size);
             break;
         case MORLOC_MAP:
             token = mpack_pack_map(data->size);
-            break;
-        case MORLOC_TUPLE:
-            token = mpack_pack_array(data->size);
             break;
     }
 
@@ -622,10 +620,10 @@ void write_token(mpack_token_t token){
             printf("BOOLEAN");
             break;
         case MPACK_TOKEN_SINT:
-            printf("SINT");
+            printf("SINT(%zu)", token.length);
             break;
         case MPACK_TOKEN_UINT:
-            printf("UINT");
+            printf("UINT(%zu)", token.length);
             break;
         case MPACK_TOKEN_FLOAT:
             printf("FLOAT");
@@ -749,8 +747,29 @@ ParsedData* parse_bool(mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf
 }
 
 ParsedData* parse_int(mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token){
+    int result = -999;
     mpack_read(tokbuf, buf_ptr, buf_remaining, token);
-    return int_data((int)(mpack_unpack_number(*token)));
+    printf("token.length=%zu\n", token->length);
+    switch(token->type){
+      case MPACK_TOKEN_UINT:
+        printf("UINT(%zu)\n", token->length);
+        result = (int)mpack_unpack_uint(*token);
+        break;
+      case MPACK_TOKEN_SINT:
+        printf("SINT(%zu)\n", token->length);
+        result = (int)mpack_unpack_sint(*token);
+        break;
+      case MPACK_TOKEN_FLOAT:
+        printf("FLOAT(%zu)\n", token->length);
+        result = (int)(mpack_unpack_float(*token));
+        break;
+      default:
+        printf("Bad token %d\n", token->type);
+        break;
+    }
+    printf("writing %d\n", result);
+
+    return int_data(result);
 }
 
 ParsedData* parse_float(mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token){
@@ -837,7 +856,25 @@ ParsedData* parse_int_array(mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t
     ParsedData* result = array_int_data_(size);
     for(size_t i = 0; i < size; i++){
       mpack_read(tokbuf, buf_ptr, buf_remaining, token);
-      result->data.int_arr[i] = (int)(mpack_unpack_number(*token));
+      switch(token->type){
+        case MPACK_TOKEN_UINT:
+          printf("UINT(%zu)\n", token->length);
+          printf("lo=%d hi=%d\n", token->data.value.lo, token->data.value.hi);
+          result->data.int_arr[i] = (int)mpack_unpack_uint(*token);
+          break;
+        case MPACK_TOKEN_SINT:
+          printf("SINT(%zu)\n", token->length);
+          result->data.int_arr[i] = (int)mpack_unpack_sint(*token);
+          break;
+        case MPACK_TOKEN_FLOAT:
+          printf("FLOAT(%zu)\n", token->length);
+          result->data.int_arr[i] = (int)(mpack_unpack_float(*token));
+          break;
+        default:
+          printf("Bad token %d\n", token->type);
+          break;
+      }
+      printf("writing %d\n", result->data.int_arr[i]);
     }
     return result;
 }
@@ -947,4 +984,189 @@ void write_tokens(const char** buf_ptr, size_t* buf_remaining){
       write_token(token);
       printf("\n");
     } while(read_result == MPACK_OK);
+}
+
+
+Packet pack(const ParsedData* data, const Schema* schema){
+
+    /* print_parsed_data(data, 0); */
+    /* print_schema(schema, 0);    */
+
+    char* packet = NULL;
+    size_t packet_size = 0;
+    int result = pack_with_schema(data, schema, &packet, &packet_size);
+
+    const char* buf = packet;
+    size_t size = packet_size;
+    print_hex(buf, size);
+    printf("\n");
+
+    /* const char* buf = packet;         */
+    /* write_tokens(&buf, &packet_size); */
+
+    /* printf("result_code=%d\n", result); */
+    /* print_hex(packet, packet_size);     */
+    /* printf("\n");                       */
+
+    Packet packet_obj;
+    packet_obj.data = packet;
+    packet_obj.size = packet_size;
+    return packet_obj;
+}
+
+ParsedData* unpack(Packet packet, const Schema* schema){
+    const char* buf = packet.data;
+    size_t buf_remaining = packet.size;
+    ParsedData* data = unpack_with_schema(&buf, &buf_remaining, schema);
+
+    /* print_parsed_data(data, 0); */
+    /* print_schema(schema, 0);    */
+
+/* 94 2a 45 cd 01 a4 ce 00 01 0f 2c */
+/* {                                */
+/*   "type": "INT_ARRAY",           */
+/*   "size": 4,                     */
+/*   "data": [42, 69, 420, 0]       */
+/* }{                               */
+/*   "type": "INT_ARRAY",           */
+/*   "size": 0                      */
+/* Original:  [42, 69, 420, 69420]  */
+/* Roundtrip: [42, 69, 420, 0]      */
+
+    return data;
+}
+
+
+// Function to get the string representation of morloc_serial_type
+const char* get_type_string(morloc_serial_type type) {
+    switch (type) {
+        case MORLOC_NIL: return "NIL";
+        case MORLOC_BOOL: return "BOOL";
+        case MORLOC_INT: return "INT";
+        case MORLOC_FLOAT: return "FLOAT";
+        case MORLOC_STRING: return "STRING";
+        case MORLOC_BINARY: return "BINARY";
+        case MORLOC_ARRAY: return "ARRAY";
+        case MORLOC_MAP: return "MAP";
+        case MORLOC_TUPLE: return "TUPLE";
+        case MORLOC_BOOL_ARRAY: return "BOOL_ARRAY";
+        case MORLOC_INT_ARRAY: return "INT_ARRAY";
+        case MORLOC_FLOAT_ARRAY: return "FLOAT_ARRAY";
+        case MORLOC_EXT: return "EXT";
+        default: return "UNKNOWN";
+    }
+}
+
+// Function to print Schema
+void print_schema(const Schema* schema, int indent) {
+    if (schema == NULL) {
+        printf("null");
+        return;
+    }
+
+    printf("{\n");
+    printf("%*s\"type\": \"%s\",\n", indent + 2, "", get_type_string(schema->type));
+    printf("%*s\"size\": %zu", indent + 2, "", schema->size);
+
+    if (schema->size > 0) {
+        printf(",\n%*s\"parameters\": [\n", indent + 2, "");
+        for (size_t i = 0; i < schema->size; i++) {
+            printf("%*s", indent + 4, "");
+            print_schema(schema->parameters[i], indent + 4);
+            if (i < schema->size - 1) printf(",");
+            printf("\n");
+        }
+        printf("%*s]", indent + 2, "");
+
+        if (schema->keys != NULL) {
+            printf(",\n%*s\"keys\": [", indent + 2, "");
+            for (size_t i = 0; i < schema->size; i++) {
+                printf("\"%s\"", schema->keys[i]);
+                if (i < schema->size - 1) printf(", ");
+            }
+            printf("]");
+        }
+    }
+
+    printf("\n%*s}", indent, "");
+}
+
+// Function to print ParsedData
+void print_parsed_data(const ParsedData* data, int indent) {
+    if (data == NULL) {
+        printf("null");
+        return;
+    }
+
+    printf("{\n");
+    printf("%*s\"type\": \"%s\",\n", indent + 2, "", get_type_string(data->type));
+    printf("%*s\"size\": %zu,\n", indent + 2, "", data->size);
+    
+    if (data->key != NULL) {
+        printf("%*s\"key\": \"%s\",\n", indent + 2, "", data->key);
+    }
+
+    printf("%*s\"data\": ", indent + 2, "");
+
+    switch (data->type) {
+        case MORLOC_NIL:
+            printf("null");
+            break;
+        case MORLOC_BOOL:
+            printf("%s", data->data.bool_val ? "true" : "false");
+            break;
+        case MORLOC_INT:
+            printf("%d", data->data.int_val);
+            break;
+        case MORLOC_FLOAT:
+            printf("%f", data->data.double_val);
+            break;
+        case MORLOC_STRING:
+            printf("\"%s\"", data->data.char_arr);
+            break;
+        case MORLOC_BINARY:
+            printf("\"<binary data>\"");
+            break;
+        case MORLOC_ARRAY:
+        case MORLOC_MAP:
+        case MORLOC_TUPLE:
+            printf("[\n");
+            for (size_t i = 0; i < data->size; i++) {
+                printf("%*s", indent + 4, "");
+                print_parsed_data(data->data.obj_arr[i], indent + 4);
+                if (i < data->size - 1) printf(",");
+                printf("\n");
+            }
+            printf("%*s]", indent + 2, "");
+            break;
+        case MORLOC_BOOL_ARRAY:
+            printf("[");
+            for (size_t i = 0; i < data->size; i++) {
+                printf("%s", data->data.bool_arr[i] ? "true" : "false");
+                if (i < data->size - 1) printf(", ");
+            }
+            printf("]");
+            break;
+        case MORLOC_INT_ARRAY:
+            printf("[");
+            for (size_t i = 0; i < data->size; i++) {
+                printf("%d", data->data.int_arr[i]);
+                if (i < data->size - 1) printf(", ");
+            }
+            printf("]");
+            break;
+        case MORLOC_FLOAT_ARRAY:
+            printf("[");
+            for (size_t i = 0; i < data->size; i++) {
+                printf("%f", data->data.float_arr[i]);
+                if (i < data->size - 1) printf(", ");
+            }
+            printf("]");
+            break;
+        case MORLOC_EXT:
+            printf("\"<extension data>\"");
+            break;
+    }
+
+    printf("\n%*s}", indent, "");
 }

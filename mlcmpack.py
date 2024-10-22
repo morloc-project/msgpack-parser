@@ -5,6 +5,13 @@ from enum import IntEnum
 from typing import Union, List, Dict, Tuple
 import json
 
+# Define the Packet structure to match the C structure
+class Packet(ctypes.Structure):
+    _fields_ = [
+        ("data", ctypes.c_char_p),
+        ("size", ctypes.c_size_t)
+    ]
+
 class MorlocSerialType(IntEnum):
     MORLOC_NIL = 0
     MORLOC_BOOL = 1
@@ -20,112 +27,78 @@ class MorlocSerialType(IntEnum):
     MORLOC_FLOAT_ARRAY = 11
     MORLOC_EXT = 12
 
-# Define the Schema structure
 class Schema(ctypes.Structure):
     pass
 
 Schema._fields_ = [
-    ("type", ctypes.c_int),  # Using c_int for the enum
+    ("type", ctypes.c_int),
     ("size", ctypes.c_size_t),
     ("parameters", ctypes.POINTER(ctypes.POINTER(Schema))),
     ("keys", ctypes.POINTER(ctypes.c_char_p))
 ]
 
-class SchemaWrapper:
-    def __init__(self, schema_type, size=0, parameters=None, keys=None):
-        self.schema = Schema()
-        self.schema.type = schema_type
-        self.schema.size = size
+def python_schema_to_c(py_schema):
+    c_schema = Schema()
+    c_schema.type = py_schema[0]
+    
+    if len(py_schema) > 1:
+        if isinstance(py_schema[1], list):
+            c_schema.size = len(py_schema[1])
+            c_schema.parameters = (ctypes.POINTER(Schema) * c_schema.size)()
+            for i, param in enumerate(py_schema[1]):
+                param_schema = python_schema_to_c(param)
+                c_schema.parameters[i] = ctypes.pointer(param_schema)
+        elif isinstance(py_schema[1], dict):
+            c_schema.size = len(py_schema[1])
+            c_schema.parameters = (ctypes.POINTER(Schema) * c_schema.size)()
+            c_schema.keys = (ctypes.c_char_p * c_schema.size)()
+            for i, (key, value) in enumerate(py_schema[1].items()):
+                param_schema = python_schema_to_c(value)
+                c_schema.parameters[i] = ctypes.pointer(param_schema)
+                c_schema.keys[i] = key.encode('utf-8')
+    else:
+        c_schema.size = 0
+        c_schema.parameters = None
+        c_schema.keys = None
+    
+    return c_schema
 
-        if parameters:
-            self.schema.parameters = (ctypes.POINTER(Schema) * len(parameters))()
-            for i, param in enumerate(parameters):
-                self.schema.parameters[i] = ctypes.pointer(param.schema)
-        else:
-            self.schema.parameters = None
+# Wrapper functions for easily building schema objects
+def schema_nil():
+    return [MorlocSerialType.MORLOC_NIL]
 
-        if keys:
-            self.schema.keys = (ctypes.c_char_p * len(keys))()
-            for i, key in enumerate(keys):
-                self.schema.keys[i] = key.encode('utf-8')
-        else:
-            self.schema.keys = None
+def schema_bool():
+    return [MorlocSerialType.MORLOC_BOOL]
 
-    @classmethod
-    def from_c_schema(cls, c_schema):
-        schema_type = MorlocSerialType(c_schema.type)
-        size = c_schema.size
+def schema_int():
+    return [MorlocSerialType.MORLOC_INT]
 
-        parameters = None
-        if c_schema.parameters:
-            parameters = [cls.from_c_schema(c_schema.parameters[i].contents) for i in range(size)]
+def schema_float():
+    return [MorlocSerialType.MORLOC_FLOAT]
 
-        keys = None
-        if c_schema.keys:
-            keys = [c_schema.keys[i].decode('utf-8') for i in range(size)]
+def schema_string():
+    return [MorlocSerialType.MORLOC_STRING]
 
-        return cls(schema_type, size, parameters, keys)
+def schema_binary():
+    return [MorlocSerialType.MORLOC_BINARY]
 
-    def to_c_schema(self):
-        return self.schema
+def schema_array(element_schema):
+    return [MorlocSerialType.MORLOC_ARRAY, [element_schema]]
 
-    def __str__(self):
-        return self._str_helper()
+def schema_map(key_value_schemas: Dict[str, List]):
+    return [MorlocSerialType.MORLOC_MAP, key_value_schemas]
 
-    def _str_helper(self, indent=0):
-        result = "  " * indent + f"Type: {MorlocSerialType(self.schema.type).name}\n"
-        if self.schema.size > 0:
-            result += "  " * indent + f"Size: {self.schema.size}\n"
-            if self.schema.parameters:
-                result += "  " * indent + "Parameters:\n"
-                for i in range(self.schema.size):
-                    param = SchemaWrapper.from_c_schema(self.schema.parameters[i].contents)
-                    result += param._str_helper(indent + 1)
-            if self.schema.keys:
-                result += "  " * indent + "Keys:\n"
-                for i in range(self.schema.size):
-                    key = self.schema.keys[i].decode('utf-8')
-                    result += "  " * (indent + 1) + f"{key}\n"
-        return result
+def schema_tuple(*element_schemas):
+    return [MorlocSerialType.MORLOC_TUPLE, list(element_schemas)]
 
-def schema_nil() -> SchemaWrapper:
-    return SchemaWrapper(MorlocSerialType.MORLOC_NIL)
+def schema_bool_array():
+    return [MorlocSerialType.MORLOC_BOOL_ARRAY]
 
-def schema_bool() -> SchemaWrapper:
-    return SchemaWrapper(MorlocSerialType.MORLOC_BOOL)
+def schema_int_array():
+    return [MorlocSerialType.MORLOC_INT_ARRAY]
 
-def schema_int() -> SchemaWrapper:
-    return SchemaWrapper(MorlocSerialType.MORLOC_INT)
-
-def schema_float() -> SchemaWrapper:
-    return SchemaWrapper(MorlocSerialType.MORLOC_FLOAT)
-
-def schema_string() -> SchemaWrapper:
-    return SchemaWrapper(MorlocSerialType.MORLOC_STRING)
-
-def schema_binary() -> SchemaWrapper:
-    return SchemaWrapper(MorlocSerialType.MORLOC_BINARY)
-
-def schema_array(element_schema: SchemaWrapper, size: int = 0) -> SchemaWrapper:
-    return SchemaWrapper(MorlocSerialType.MORLOC_ARRAY, size=size, parameters=[element_schema])
-
-def schema_bool_array(size: int = 0) -> SchemaWrapper:
-    return SchemaWrapper(MorlocSerialType.MORLOC_BOOL_ARRAY, size=size)
-
-def schema_int_array(size: int = 0) -> SchemaWrapper:
-    return SchemaWrapper(MorlocSerialType.MORLOC_INT_ARRAY, size=size)
-
-def schema_float_array(size: int = 0) -> SchemaWrapper:
-    return SchemaWrapper(MorlocSerialType.MORLOC_FLOAT_ARRAY, size=size)
-
-def schema_tuple(*element_schemas: SchemaWrapper) -> SchemaWrapper:
-    return SchemaWrapper(MorlocSerialType.MORLOC_TUPLE, size=len(element_schemas), parameters=list(element_schemas))
-
-def schema_map(key_value_schemas: Dict[str, SchemaWrapper]) -> SchemaWrapper:
-    keys = list(key_value_schemas.keys())
-    values = list(key_value_schemas.values())
-    return SchemaWrapper(MorlocSerialType.MORLOC_MAP, size=len(keys), parameters=values, keys=keys)
-
+def schema_float_array():
+    return [MorlocSerialType.MORLOC_FLOAT_ARRAY]
 
 
 
@@ -156,11 +129,9 @@ ParsedData._fields_ = [
 
 def python_to_parsed_data(data, schema, key = None) -> ParsedData:
     pd = ParsedData()
-    pd.key = key.encode('utf-8') if key else None
 
-       # If schema is a SchemaWrapper, get the underlying Schema
-    if isinstance(schema, SchemaWrapper):
-        schema = schema.schema
+    if isinstance(key, str):
+        pd.key = key.encode('utf-8')
 
     # If schema is a pointer, dereference it
     if isinstance(schema, ctypes.POINTER(Schema)):
@@ -196,8 +167,7 @@ def python_to_parsed_data(data, schema, key = None) -> ParsedData:
     elif schema.type == MorlocSerialType.MORLOC_MAP:
         pd.size = len(data)
         arr = (ParsedDataPtr * pd.size)()
-        for i, (k, v) in enumerate(data.items()):
-            v_schema = schema.parameters[k] if isinstance(schema.parameters, dict) else schema.parameters[1]
+        for (i, (k, v)), v_schema in zip(enumerate(data.items()), schema.parameters):
             arr[i] = ctypes.pointer(python_to_parsed_data(v, v_schema, key=k))
         pd.data.obj_arr = arr
     elif schema.type == MorlocSerialType.MORLOC_TUPLE:
@@ -256,17 +226,42 @@ def parsed_data_to_python(pd: ParsedData) -> Union[None, bool, int, float, str, 
     else:
         raise ValueError(f"Unknown ParsedData type: {pd.type}")
 
-def create_read_only_parsed_data(data, schema):
-    pd = python_to_parsed_data(data, schema, key = "")
-    return ctypes.pointer(pd)
 
-# Example usage
+# Load the shared library
+lib = ctypes.CDLL('./mlcmpack.so')
+
+# Define the function signatures for the new wrappers
+lib.pack.argtypes = [ctypes.POINTER(ParsedData), ctypes.POINTER(Schema)]
+lib.pack.restype = Packet
+
+lib.unpack.argtypes = [Packet, ctypes.POINTER(Schema)]
+lib.unpack.restype = ctypes.POINTER(ParsedData)
+
+
+def pack_data(data: ParsedData, schema: Schema) -> bytes:
+
+    # data and schema are already the correct types (ParsedData and Schema),
+    # so we just need to pass pointers to them
+    packet = lib.pack(data, schema)
+    
+    # Copy the data from the Packet
+    packed_data = ctypes.string_at(packet.data, packet.size)
+    
+
+    return packed_data
+
+
+def unpack_data(packed_data: bytes, schema: Schema) -> ParsedData:
+    packet = Packet(ctypes.c_char_p(packed_data), ctypes.c_size_t(len(packed_data)))
+    result = lib.unpack(packet, ctypes.byref(schema))
+    if not result:
+        raise RuntimeError("Unpacking failed")
+    return result.contents
+
+
 if __name__ == "__main__":
 
-    schema = schema_array(schema_tuple(schema_bool(), schema_int_array()))
-
-    # Create schema using helper functions
-    schema = schema_map({
+    big_schema = schema_map({
         "null_value": schema_nil(),
         "boolean": schema_bool(),
         "integer": schema_int(),
@@ -274,35 +269,56 @@ if __name__ == "__main__":
         "string": schema_string(),
         "binary": schema_binary(),
         "binary_string": schema_string(),
-        "array": schema_int_array(100),
+        "array": schema_int_array(),
         "nested_map": schema_map({"a": schema_int(), "b": schema_int()}),
         "tuple": schema_tuple(schema_int(), schema_int(), schema_int())
     })
 
-    data = {
+    big_data = {
         "null_value": None,
         "boolean": True,
         "integer": 42,
         "float": 3.14,
         "string": "Hello, World!",
         "binary": b'\x00\x01\x02\x03',
-        "binary": "1234",
+        "binary_string": "a1234",
         "array": list(range(100)),
         "nested_map": {"a": 1, "b": 2},
         "tuple": (4, 5, 6),
     }
 
-    for j in range(50000):
-        parsed = json.dumps(data)
-        result = json.loads(parsed)
-        #  parsed = create_read_only_parsed_data(data, schema)
-        #  result = parsed_data_to_python(parsed.contents)
 
-    print(f"Original: {data}")
-    print(f"Roundtrip: {result}")
+    pairs = [
+        (schema_bool(), True),
+        (schema_int(), 65536),
+        (schema_float(), 6.9420),
+        (schema_string(), "Marry Jane"),
+        (schema_binary(), b"Marry Jane"),
+        (schema_bool_array(), [True, False, False]),
+        #  (schema_int_array(), [42, 69, 420, 65535, 65536, 65535]),
+        (schema_float_array(), [42, 69, 420, 42069]),
+        (schema_tuple(schema_bool(), schema_int()), (False, 42069)),
+        (schema_tuple(schema_bool(), schema_int()), (False, 42069)),
+        (schema_map({"a": schema_bool(), "b": schema_int()}), {"a": True, "b": 42}),
+        (big_schema, big_data),
+    ]
 
-    # Attempt to modify ParsedData (this will raise an error)
-    try:
-        parsed.contents.data.int_val = 10
-    except AttributeError as e:
-        print(f"Modification attempt failed: {e}")
+    for (py_schema, data) in pairs:
+
+        schema = python_schema_to_c(py_schema)
+
+        # Convert Python data to ParsedData
+        parsed_data = python_to_parsed_data(data, schema)
+
+        # Pack the data
+        packed_data = pack_data(parsed_data, schema)
+
+        # Unpack the data
+        unpacked_data = unpack_data(packed_data, schema)
+
+        # Convert ParsedData back to Python
+        result = parsed_data_to_python(unpacked_data)
+
+        print(f"Original:  {data}")
+        print(f"Roundtrip: {result}")
+        print()
