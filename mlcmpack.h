@@ -11,11 +11,6 @@
 
 #include "mpack.h"
 
-typedef struct Packet {
-  char* data;
-  size_t size; 
-} Packet ;
-
 typedef enum {
   MORLOC_NIL           =  0,
   MORLOC_BOOL          =  1,
@@ -90,10 +85,9 @@ void print_schema(const Schema* schema, int index);
 ParsedData* unpack_with_schema(const char** buf_ptr, size_t* buf_remaining, const Schema* schema);
 
 // Main pack function for creating morloc-encoded MessagePack data
-int pack_with_schema(const ParsedData* data, const Schema* schema, char** packet, size_t* packet_size);
+int pack(const ParsedData* data, const Schema* schema, char** out_data, size_t* out_size);
+int unpack(const char* data, size_t size, const Schema* schema, ParsedData** out_data);
 
-Packet pack(const ParsedData* data, const Schema* schema);
-ParsedData* unpack(Packet packet, const Schema* schema);
 
 // Helper structure for key-value pairs
 typedef struct {
