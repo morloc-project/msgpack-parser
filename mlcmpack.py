@@ -4,12 +4,8 @@ import ctypes
 from enum import IntEnum
 from typing import Union, List, Dict, Tuple
 
-# Define the Packet structure to match the C structure
-class Packet(ctypes.Structure):
-    _fields_ = [
-        ("data", ctypes.c_char_p),
-        ("size", ctypes.c_size_t)
-    ]
+def hex(xs: bytes) -> str:
+    return ' '.join('{:02x}'.format(x) for x in xs)
 
 class MorlocSerialType(IntEnum):
     MORLOC_NIL = 0
@@ -112,7 +108,7 @@ class _Data(ctypes.Union):
         ("bool_val", ctypes.c_bool),
         ("int_val", ctypes.c_int),
         ("double_val", ctypes.c_double),
-        ("char_arr", ctypes.c_char_p),
+        ("char_arr", ctypes.POINTER(ctypes.c_char)),
         ("bool_arr", ctypes.POINTER(ctypes.c_bool)),
         ("int_arr", ctypes.POINTER(ctypes.c_int)),
         ("float_arr", ctypes.POINTER(ctypes.c_double)),
@@ -153,11 +149,12 @@ def python_to_parsed_data(data, schema, key = None) -> ParsedData:
     elif schema.type == MorlocSerialType.MORLOC_STRING:
         encoded = data.encode('utf-8')
         pd.size = len(encoded)
-        pd.data.char_arr = ctypes.c_char_p(encoded)
+        buffer = ctypes.create_string_buffer(encoded)
+        pd.data.char_arr = ctypes.cast(buffer, ctypes.POINTER(ctypes.c_char))
     elif schema.type == MorlocSerialType.MORLOC_BINARY:
         pd.size = len(data)
-        buffer = (ctypes.c_char * pd.size)(*data)
-        pd.data.char_arr = ctypes.cast(buffer, ctypes.c_char_p)
+        buffer = ctypes.create_string_buffer(data)
+        pd.data.char_arr = ctypes.cast(buffer, ctypes.POINTER(ctypes.c_char))
     elif schema.type == MorlocSerialType.MORLOC_ARRAY:
         pd.size = len(data)
         arr = (ParsedDataPtr * pd.size)()
@@ -205,9 +202,9 @@ def parsed_data_to_python(pd: ParsedData) -> Union[None, bool, int, float, str, 
     elif pd.type == MorlocSerialType.MORLOC_FLOAT:
         return pd.data.double_val
     elif pd.type == MorlocSerialType.MORLOC_STRING:
-        return pd.data.char_arr.decode('utf-8')
+        return pd.data.char_arr[:pd.size].decode('utf-8')
     elif pd.type == MorlocSerialType.MORLOC_BINARY:
-        return bytes(pd.data.char_arr[:pd.size])
+        return pd.data.char_arr[:pd.size]
     elif pd.type == MorlocSerialType.MORLOC_ARRAY:
         return [parsed_data_to_python(pd.data.obj_arr[i].contents) for i in range(pd.size)]
     elif pd.type == MorlocSerialType.MORLOC_MAP:
@@ -230,36 +227,34 @@ def parsed_data_to_python(pd: ParsedData) -> Union[None, bool, int, float, str, 
 # Load the shared library
 lib = ctypes.CDLL('./mlcmpack.so')
 
-lib.pack.argtypes = [ctypes.POINTER(ParsedData), ctypes.POINTER(Schema), ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.c_size_t)]
+# Update the function signatures
+lib.pack.argtypes = [ctypes.POINTER(ParsedData), ctypes.POINTER(Schema), ctypes.POINTER(ctypes.POINTER(ctypes.c_char)), ctypes.POINTER(ctypes.c_size_t)]
 lib.pack.restype = ctypes.c_int
 
-lib.unpack.argtypes = [ctypes.c_char_p, ctypes.c_size_t, ctypes.POINTER(Schema), ctypes.POINTER(ctypes.POINTER(ParsedData))]
+lib.unpack.argtypes = [ctypes.POINTER(ctypes.c_char), ctypes.c_size_t, ctypes.POINTER(Schema), ctypes.POINTER(ctypes.POINTER(ParsedData))]
 lib.unpack.restype = ctypes.c_int
 
-
 def pack_data(data: ParsedData, schema: Schema) -> bytes:
-    out_data = ctypes.c_char_p()
+    out_data = ctypes.POINTER(ctypes.c_char)()
     out_size = ctypes.c_size_t()
     result = lib.pack(ctypes.byref(data), ctypes.byref(schema), ctypes.byref(out_data), ctypes.byref(out_size))
     if result != 0:
         raise RuntimeError("Packing failed")
-    
+
     packed_data = ctypes.string_at(out_data, out_size.value)
-    
+
     return packed_data
 
-
 def unpack_data(packed_data: bytes, schema: Schema) -> ParsedData:
+    data_ptr = ctypes.cast(packed_data, ctypes.POINTER(ctypes.c_char))
     out_data = ctypes.POINTER(ParsedData)()
-    result = lib.unpack(packed_data, len(packed_data), ctypes.byref(schema), ctypes.byref(out_data))
+
+    result = lib.unpack(data_ptr, len(packed_data), ctypes.byref(schema), ctypes.byref(out_data))
     if result != 0:
         raise RuntimeError("Unpacking failed")
-    
+
     # Create a deep copy of the ParsedData
     parsed_data = copy_parsed_data(out_data.contents)
-    
-    # Free the memory allocated by C
-    lib.free_parsed_data(out_data)
     
     return parsed_data
 
@@ -278,12 +273,15 @@ def copy_parsed_data(data: ParsedData) -> ParsedData:
     elif data.type == MorlocSerialType.MORLOC_FLOAT:
         new_data.data.double_val = data.data.double_val
     elif data.type == MorlocSerialType.MORLOC_STRING:
-        new_data.data.char_arr = ctypes.c_char_p(ctypes.cast(data.data.char_arr, ctypes.c_char_p).value)
+        new_data.size = data.size  # Ensure the size is copied
+        new_buffer = (ctypes.c_char * data.size)()
+        ctypes.memmove(new_buffer, data.data.char_arr, data.size)
+        new_data.data.char_arr = ctypes.cast(new_buffer, ctypes.POINTER(ctypes.c_char))
     elif data.type == MorlocSerialType.MORLOC_BINARY:
         new_data.size = data.size  # Ensure the size is copied
         new_buffer = (ctypes.c_char * data.size)()
         ctypes.memmove(new_buffer, data.data.char_arr, data.size)
-        new_data.data.char_arr = ctypes.cast(new_buffer, ctypes.c_char_p)
+        new_data.data.char_arr = ctypes.cast(new_buffer, ctypes.POINTER(ctypes.c_char))
     elif data.type in [MorlocSerialType.MORLOC_ARRAY, MorlocSerialType.MORLOC_MAP, MorlocSerialType.MORLOC_TUPLE]:
         new_arr = (ParsedDataPtr * data.size)()
         for i in range(data.size):
@@ -317,8 +315,8 @@ if __name__ == "__main__":
         "boolean": schema_bool(),
         "integer": schema_int(),
         "float": schema_float(),
-        "string": schema_string(),
         "binary": schema_binary(),
+        "string": schema_string(),
         "binary_string": schema_string(),
         "array": schema_int_array(),
         "nested_map": schema_map({"a": schema_int(), "b": schema_int()}),
@@ -330,8 +328,8 @@ if __name__ == "__main__":
         "boolean": True,
         "integer": 42,
         "float": 3.14,
-        "string": "Hello, World!",
         "binary": b'\x10\x01\x02\x03',
+        "string": "Hello, World!",
         "binary_string": "a1234",
         "array": list(range(5)),
         "nested_map": {"a": 1, "b": 2},
@@ -339,6 +337,11 @@ if __name__ == "__main__":
     }
 
     pairs = [
+        (schema_string(), "abcdabcdabcdabcdabcdabcdabcdabc"),
+        (schema_string(), "abcdabcdabcdabcdabcdabcdabcdabcd"),
+        (schema_string(), "asdf aosiudf  kiw pqoeiral"),
+        (schema_array(schema_string()), ["asdf"]),
+        (schema_array(schema_string()), ["asdf", "qwert", "erty"]),
         (schema_bool(), True),
         (schema_bool(), False),
         (schema_int(), 65536),
