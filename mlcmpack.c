@@ -420,7 +420,7 @@ void upsize(
     size_t buffer_size = used_size + *remaining_size;
 
     // find an appropriate size for the new data
-    while (added_size < *remaining_size) {
+    while (added_size > *remaining_size) {
         if (buffer_size > SIZE_MAX / 2) {
             buffer_size += BUFFER_SIZE;
         } else {
@@ -494,8 +494,9 @@ int pack_data(
             break;
     }
 
-    mpack_write(tokbuf, packet_ptr, packet_remaining, &token);
+    result = mpack_write(tokbuf, packet_ptr, packet_remaining, &token);
     if (result == MPACK_EOF || *packet_remaining == 0) {
+        printf("a\n");
         upsize(packet, packet_ptr, packet_remaining, token.length);
         if (result == MPACK_EOF) {
             mpack_write(tokbuf, packet_ptr, packet_remaining, &token);
@@ -537,12 +538,20 @@ int pack_data(
                 token = mpack_pack_float(data->data.float_arr[i]);
                 break;
               default:
+                printf("Unexpected token: %d\n", schema->type);
                 break;
             }
 
             result = mpack_write(tokbuf, packet_ptr, packet_remaining, &token);
+
             if (result == MPACK_EOF || *packet_remaining == 0) {
-                upsize(packet, packet_ptr, packet_remaining, token.length);
+                // token.length isn't set for mpack_pack_sint.
+                // so I'm hard setting the required bases to 8, which is enough
+                // for any supported number. In rare edge cases, this could lead
+                // to the buffer being unnecessarily resized. But this will only
+                // be a minor performance cost. mpack_pack_sint is about 10%
+                // faster than mpack_pack_number, so usually sint is better.
+                upsize(packet, packet_ptr, packet_remaining, 8);
                 if (result == MPACK_EOF) {
                     mpack_write(tokbuf, packet_ptr, packet_remaining, &token);
                 }
@@ -569,6 +578,7 @@ int pack_data(
             token = mpack_pack_str(key_len);
             result = mpack_write(tokbuf, packet_ptr, packet_remaining, &token);
             if (result == MPACK_EOF || *packet_remaining == 0) {
+                printf("c\n");
                 upsize(packet, packet_ptr, packet_remaining, token.length);
                 if (result == MPACK_EOF) {
                     mpack_write(tokbuf, packet_ptr, packet_remaining, &token);
@@ -590,6 +600,7 @@ int pack_data(
 
 int pack_with_schema(const ParsedData* data, const Schema* schema, char** packet, size_t* packet_size) {
     *packet_size = 0;
+
     *packet = (char*)malloc(BUFFER_SIZE * sizeof(char));
     if (*packet == NULL) return 1;
     size_t packet_remaining = BUFFER_SIZE;

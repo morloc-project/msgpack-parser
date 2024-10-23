@@ -361,26 +361,27 @@ if __name__ == "__main__":
         (schema_map({"a": schema_bool(), "b": schema_int()}), {"a": True, "b": 42}),
         (schema_int_array(), list(range(1492))),
         (schema_int_array(), list(range(1493))),
+        (schema_int_array(), list(range(500000)) + -1 * list(range(500000))),
         (big_schema, big_data),
     ]
 
     for (py_schema, data) in pairs:
-
+    
         schema = python_schema_to_c(py_schema)
-
+    
         # Convert Python data to ParsedData
         parsed_data = python_to_parsed_data(data, schema)
-
+    
         # Pack the data
         packed_data = pack_data(parsed_data, schema)
-
+    
         # Unpack the data
         unpacked_data = unpack_data(packed_data, schema)
-
+    
         # Convert ParsedData back to Python
         result = parsed_data_to_python(unpacked_data)
-
+    
         if(data != result):
             print("Circle failure:")
-            print(f"Input:  {str(data)}")
-            print(f"Output: {str(result)}")
+            print(f"Input:  {data}")
+            print(f"Output: {result}")

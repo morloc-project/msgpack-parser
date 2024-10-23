@@ -119,6 +119,8 @@ ParsedData* float_data(double value);
 // strings and binary
 ParsedData* string_data(const char* value, size_t size);
 ParsedData* binary_data(const char* value, size_t size);
+ParsedData* string_data_(size_t size);
+ParsedData* binary_data_(size_t size);
 // unboxed arrays
 ParsedData* array_bool_data(const bool* values, size_t size);
 ParsedData* array_int_data(const int* values, size_t size);
