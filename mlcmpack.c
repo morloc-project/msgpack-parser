@@ -496,7 +496,7 @@ int pack_data(
 
     result = mpack_write(tokbuf, packet_ptr, packet_remaining, &token);
     if (result == MPACK_EOF || *packet_remaining == 0) {
-        printf("a\n");
+        printf("a - token.type = %d token.length = %zu\n", token.type, token.length);
         upsize(packet, packet_ptr, packet_remaining, token.length);
         if (result == MPACK_EOF) {
             mpack_write(tokbuf, packet_ptr, packet_remaining, &token);
@@ -869,23 +869,18 @@ ParsedData* parse_int_array(mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t
       mpack_read(tokbuf, buf_ptr, buf_remaining, token);
       switch(token->type){
         case MPACK_TOKEN_UINT:
-          /* printf("UINT(%zu)\n", token->length);                                */
-          /* printf("lo=%d hi=%d\n", token->data.value.lo, token->data.value.hi); */
           result->data.int_arr[i] = (int)mpack_unpack_uint(*token);
           break;
         case MPACK_TOKEN_SINT:
-          /* printf("SINT(%zu)\n", token->length); */
           result->data.int_arr[i] = (int)mpack_unpack_sint(*token);
           break;
         case MPACK_TOKEN_FLOAT:
-          /* printf("FLOAT(%zu)\n", token->length); */
           result->data.int_arr[i] = (int)(mpack_unpack_float(*token));
           break;
         default:
           printf("Bad token %d\n", token->type);
           break;
       }
-      /* printf("writing %d\n", result->data.int_arr[i]); */
     }
     return result;
 }

@@ -337,31 +337,41 @@ if __name__ == "__main__":
     }
 
     pairs = [
-        (schema_string(), "abcdabcdabcdabcdabcdabcdabcdabc"),
-        (schema_string(), "abcdabcdabcdabcdabcdabcdabcdabcd"),
-        (schema_string(), "asdf aosiudf  kiw pqoeiral"),
-        (schema_array(schema_string()), ["asdf"]),
-        (schema_array(schema_string()), ["asdf", "qwert", "erty"]),
+        (schema_string(), ""),
+        (schema_string(), "x"),
+        (schema_string(), "x" * 1000000),
         (schema_bool(), True),
         (schema_bool(), False),
-        (schema_int(), 65536),
+        (schema_int(), -1000000),
+        (schema_int(), 1000000),
         (schema_float(), 6.9420),
-        (schema_string(), "Marry Jane"),
-        (schema_binary(), b"Marry Jane"),
-        (schema_binary(), b'\x00\x01\x02\x03'),
-        (schema_bool_array(), [True, False, False]),
-        (schema_bool_array(), [True, False, False, False, True, True, False, False]),
-        (schema_int_array(), [42, 69, 420, 65535, 65536, 65535]),
-        (schema_int_array(), list(range(10))),
-        (schema_int_array(), [65535, 65535, 65535, 65535]),
-        (schema_int_array(), [65536, 65535, 65535, 65535]),
-        (schema_float_array(), [42, 69, 420, 42069]),
+        (schema_float(), -6.9420),
+        (schema_binary(), b''),
+        (schema_binary(), b'\x00susan'),
+        (schema_binary(), b'x' * 1000000),
+
+
+        (schema_bool_array(), []),
+        (schema_bool_array(), [True]),
+        (schema_bool_array(), [True, False] * 10000),
+
+        (schema_int_array(), []),
+        (schema_int_array(), list(range(1))),
+        (schema_int_array(), list(range(500000)) + -1 * list(range(500000))),
+
+        (schema_float_array(), []),
+        (schema_float_array(), [1]),
+        (schema_float_array(), list(range(10000)) + -1 * list(range(10000))),
+        (schema_float_array(), list(range(1000000))),
+
+        (schema_array(schema_string()), ["x" * i for i in range(5000)]),
+        (schema_array(schema_string()), ["as44" for _ in range(10000)]),
+        (schema_array(schema_string()), ["as44" for _ in range(100000)]),
+
         (schema_tuple(schema_bool(), schema_int()), (False, 42069)),
         (schema_tuple(schema_bool(), schema_int()), (False, 42069)),
         (schema_map({"a": schema_bool(), "b": schema_int()}), {"a": True, "b": 42}),
-        (schema_int_array(), list(range(1492))),
-        (schema_int_array(), list(range(1493))),
-        (schema_int_array(), list(range(500000)) + -1 * list(range(500000))),
+
         (big_schema, big_data),
     ]
 
