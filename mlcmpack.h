@@ -11,6 +11,10 @@
 
 #include "mpack.h"
 
+// Forward declarations
+struct Schema;
+struct ParsedData;
+
 typedef enum {
   MORLOC_NIL           =  0,
   MORLOC_BOOL          =  1,
@@ -27,6 +31,17 @@ typedef enum {
   MORLOC_EXT           =  12
 } morloc_serial_type;
 
+#define SCHEMA_ARRAY  'a'
+#define SCHEMA_TUPLE  't'
+#define SCHEMA_MAP    'm'
+#define SCHEMA_NIL    'z'
+#define SCHEMA_BOOL   'b'
+#define SCHEMA_SINT   'i'
+#define SCHEMA_UINT   'u'
+#define SCHEMA_FLOAT  'f'
+#define SCHEMA_STRING 's'
+#define SCHEMA_BINARY 'r'
+
 #define BUFFER_SIZE 4096
 
 // The maximum nesting depth of a data structure. This should be deep enough for
@@ -36,10 +51,6 @@ typedef enum {
 // downside of the linked list is that it must live on the heap and will be
 // slower.
 #define MAX_DEPTH 128
-
-// Forward declarations
-struct Schema;
-struct ParsedData;
 
 // Schema definition
 //  * Primitives have no parameters
@@ -73,42 +84,15 @@ typedef struct ParsedData {
 
 // Prototypes
 
-Schema* create_schema(morloc_serial_type type, size_t size, Schema** parameters, char** keys);
-void free_schema(Schema* schema);
-
 void free_parsed_data(ParsedData* data);
 
 void print_parsed_data(const ParsedData* data, int indent);
-void print_schema(const Schema* schema, int index);
 
-// Main unpack function for reading morloc-encoded MessagePack data
-ParsedData* unpack_with_schema(const char** buf_ptr, size_t* buf_remaining, const Schema* schema);
+Schema* read_schema_size(char** schema_ptr);
 
 // Main pack function for creating morloc-encoded MessagePack data
-int pack(const ParsedData* data, const Schema* schema, char** out_data, size_t* out_size);
-int unpack(const char* data, size_t size, const Schema* schema, ParsedData** out_data);
-
-
-// Helper structure for key-value pairs
-typedef struct {
-    char* key;
-    Schema* value;
-} SchemaKeyValuePair;
-
-// schema constructors
-Schema* nil_schema();
-Schema* bool_schema();
-Schema* int_schema();
-Schema* float_schema();
-Schema* bool_array_schema();
-Schema* int_array_schema();
-Schema* float_array_schema();
-Schema* string_schema();
-Schema* binary_schema();
-Schema* tuple_schema(size_t size, ...);
-Schema* array_schema(Schema* array_type);
-SchemaKeyValuePair* kvp_schema(const char* key, Schema* value);
-Schema* map_schema(size_t size, ...);
+int pack(const ParsedData* data, const char* schema_str, char** out_data, size_t* out_size);
+int unpack(const char* data, size_t size, const char* schema_str, ParsedData** out_data);
 
 
 // create atomic values

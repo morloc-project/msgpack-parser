@@ -1,5 +1,7 @@
 #include "mlcmpack.h"
 
+void free_schema(Schema* schema);
+
 // utility ####
 
 void print_hex(const char* data, size_t size) {
@@ -66,39 +68,12 @@ Schema* float_array_schema() {
     return create_schema_with_params(MORLOC_FLOAT_ARRAY, 1, params, NULL);
 }
 
+Schema* tuple_schema_(size_t size) {
 
-// Helper function to create a key-value pair
-SchemaKeyValuePair* kvp_schema(const char* key, Schema* value) {
-    SchemaKeyValuePair* kvp = malloc(sizeof(SchemaKeyValuePair));
-    if (!kvp) return NULL;
-    
-    // this is a NEW pointer, so need to free this later
-    kvp->key = strdup(key);
-    if (!kvp->key) {
-        free(kvp);
-        return NULL;
-    }
-    
-    kvp->value = value;
-    return kvp;
-}
-
-// Implementation of tuple function
-Schema* tuple_schema(size_t size, ...) {
-    va_list args;
-    va_start(args, size);
-
-    Schema** params = malloc(size * sizeof(Schema*));
+    Schema** params = calloc(size, sizeof(Schema*));
     if (!params) {
-        va_end(args);
         return NULL;
     }
-
-    for (size_t i = 0; i < size; i++) {
-        params[i] = va_arg(args, Schema*);
-    }
-
-    va_end(args);
 
     return create_schema_with_params(MORLOC_TUPLE, size, params, NULL);
 }
@@ -121,32 +96,15 @@ Schema* array_schema(Schema* array_type) {
     }
 }
 
-// Implementation of map function
-// This function eats its keys
-Schema* map_schema(size_t size, ...) {
-    va_list args;
-    va_start(args, size);
-
-    Schema** params = malloc(size * sizeof(Schema*));
-    char** keys = malloc(size * sizeof(char*));
+Schema* map_schema_(size_t size) {
+    Schema** params = calloc(size, sizeof(Schema*));
+    char** keys = calloc(size, sizeof(char*));
 
     if (!params || !keys) {
         free(params);
         free(keys);
-        va_end(args);
         return NULL;
     }
-
-    for (size_t i = 0; i < size; i++) {
-        SchemaKeyValuePair* kvp = va_arg(args, SchemaKeyValuePair*);
-        // here I am passing ownership, the schema will free these
-        keys[i] = kvp->key;
-        params[i] = kvp->value;
-        // only free kvp
-        free(kvp);
-    }
-
-    va_end(args);
 
     return create_schema_with_params(MORLOC_MAP, size, params, keys);
 }
@@ -475,6 +433,78 @@ int dynamic_mpack_write(
     return result;
 }
 
+size_t parse_schema_size(const char** schema_ptr){
+  char c = **schema_ptr; 
+  size_t size =
+    // characters 0-9 are integers 0-9
+    (c >= 0x30 && c <= 0x39) * (c - 0x30) +
+    // characters a-z are integers 10-35
+    (c >= 0x61 && c <= 0x7a) * (c - 0x61 + 10) +
+    // characters A-Z are integers 36-61
+    (c >= 0x41 && c <= 0x5a) * (c - 0x41 + 36) +
+    // '+' is 62
+    (c == '+') * 62 +
+    // '/' is 63
+    (c == '/') * 63;
+  (*schema_ptr)++;
+  return size;
+}
+
+char* parse_schema_key(const char** schema_ptr){
+  size_t key_size = parse_schema_size(schema_ptr);
+  char* key = (char*)calloc(key_size+1, sizeof(char));
+  memcpy(key, *schema_ptr, key_size); 
+  *schema_ptr += key_size;
+  return key;
+}
+
+Schema* parse_schema(const char** schema_ptr){
+  Schema* schema = 0;
+  char c = **schema_ptr;
+  (*schema_ptr)++;
+  size_t size;
+
+  switch(c){
+    case SCHEMA_ARRAY:
+      return array_schema(parse_schema(schema_ptr));
+    case SCHEMA_TUPLE:
+      size = parse_schema_size(schema_ptr);
+      schema = tuple_schema_(size);
+      for(size_t i = 0; i < size; i++){
+        schema->parameters[i] = parse_schema(schema_ptr);
+      }
+      return schema;
+    case SCHEMA_MAP:
+      size = parse_schema_size(schema_ptr);
+      schema = map_schema_(size);
+      for(size_t i = 0; i < size; i++){
+        schema->keys[i] = parse_schema_key(schema_ptr);
+        schema->parameters[i] = parse_schema(schema_ptr);
+      }
+      return schema;
+    case SCHEMA_NIL:
+      return nil_schema();
+    case SCHEMA_BOOL:
+      return bool_schema();
+    case SCHEMA_SINT:
+      size = parse_schema_size(schema_ptr);
+      return int_schema();
+    case SCHEMA_UINT:
+      size = parse_schema_size(schema_ptr);
+      return int_schema();
+    case SCHEMA_FLOAT:
+      size = parse_schema_size(schema_ptr);
+      return float_schema();
+    case SCHEMA_STRING:
+      return string_schema();
+    case SCHEMA_BINARY:
+      return binary_schema();
+    default:
+      fprintf(stderr, "Unrecognized schema type '%c'\n", c);
+      return 0;
+  }
+}
+
 //  The main function for writing MessagePack
 int pack_data(
   const ParsedData* data,    // input data structure
@@ -675,72 +705,6 @@ void write_token(mpack_token_t token){
         break;
     }
 }
-
-void write_schema(const Schema* schema){
-    if(!schema){
-      fprintf(stderr, "NULL");
-      return;
-    }
-    switch(schema->type){
-      case MORLOC_NIL: 
-          fprintf(stderr, "NIL");
-          break;
-      case MORLOC_BOOL: 
-          fprintf(stderr, "BOOL");
-          break;
-      case MORLOC_INT: 
-          fprintf(stderr, "INT");
-          break;
-      case MORLOC_FLOAT: 
-          fprintf(stderr, "FLOAT");
-          break;
-      case MORLOC_STRING: 
-          fprintf(stderr, "STRING");
-          break;
-      case MORLOC_BINARY: 
-          fprintf(stderr, "BINARY");
-          break;
-      case MORLOC_ARRAY: 
-          fprintf(stderr, "ARRAY<");
-          write_schema(schema->parameters[0]);
-          fprintf(stderr, ">");
-          break;
-      case MORLOC_MAP: 
-          fprintf(stderr, "MAP{");
-          for(size_t i = 0; i < schema->size; i++){
-            fprintf(stderr, "%s: ", schema->keys[i]);
-            write_schema(schema->parameters[i]);
-            if(i != schema->size - 1){
-                fprintf(stderr, ", ");
-            }
-          }
-          fprintf(stderr, "}");
-          break;
-      case MORLOC_TUPLE: 
-          fprintf(stderr, "TUPLE<");
-          for(size_t i = 0; i < schema->size; i++){
-            write_schema(schema->parameters[i]);
-            if(i != schema->size - 1){
-                fprintf(stderr, ", ");
-            }
-          }
-          fprintf(stderr, ">");
-          break;
-      case MORLOC_BOOL_ARRAY: 
-          fprintf(stderr, "BOOL_ARRAY");
-          break;
-      case MORLOC_INT_ARRAY: 
-          fprintf(stderr, "INT_ARRAY");
-          break;
-      case MORLOC_FLOAT_ARRAY: 
-          fprintf(stderr, "FLOAT_ARRAY");
-          break;
-      default:
-          break;
-    }
-
-}
-
 
 // terminal parsers
 ParsedData* parse_binary(mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token);
@@ -1004,11 +968,13 @@ void write_tokens(const char** buf_ptr, size_t* buf_remaining){
 }
 
 
-int pack(const ParsedData* data, const Schema* schema, char** out_data, size_t* out_size) {
+int pack(const ParsedData* data, const char* schema_str, char** out_data, size_t* out_size) {
+    Schema* schema = parse_schema(&schema_str);
     return pack_with_schema(data, schema, out_data, out_size);
 }
 
-int unpack(const char* data, size_t size, const Schema* schema, ParsedData** out_data) {
+int unpack(const char* data, size_t size, const char* schema_str, ParsedData** out_data) {
+    const Schema* schema = parse_schema(&schema_str);
     // Use the existing unpack_with_schema function, but adapt it to the new prototype
     const char* buf = data;
     size_t buf_remaining = size;

@@ -28,81 +28,6 @@ class MorlocSerialType(IntEnum):
     MORLOC_FLOAT_ARRAY = 11
     MORLOC_EXT = 12
 
-class Schema(ctypes.Structure):
-    pass
-
-Schema._fields_ = [
-    ("type", ctypes.c_int),
-    ("size", ctypes.c_size_t),
-    ("parameters", ctypes.POINTER(ctypes.POINTER(Schema))),
-    ("keys", ctypes.POINTER(ctypes.c_char_p))
-]
-
-def python_schema_to_c(py_schema):
-    c_schema = Schema()
-    c_schema.type = py_schema[0]
-
-    if len(py_schema) > 1:
-        if isinstance(py_schema[1], list):
-            c_schema.size = len(py_schema[1])
-            c_schema.parameters = (ctypes.POINTER(Schema) * c_schema.size)()
-            for i, param in enumerate(py_schema[1]):
-                param_schema = python_schema_to_c(param)
-                c_schema.parameters[i] = ctypes.pointer(param_schema)
-        elif isinstance(py_schema[1], dict):
-            c_schema.size = len(py_schema[1])
-            c_schema.parameters = (ctypes.POINTER(Schema) * c_schema.size)()
-            c_schema.keys = (ctypes.c_char_p * c_schema.size)()
-            for i, (key, value) in enumerate(py_schema[1].items()):
-                param_schema = python_schema_to_c(value)
-                c_schema.parameters[i] = ctypes.pointer(param_schema)
-                c_schema.keys[i] = key.encode('utf-8')
-    else:
-        c_schema.size = 0
-        c_schema.parameters = None
-        c_schema.keys = None
-
-    return c_schema
-
-# Wrapper functions for easily building schema objects
-def schema_nil():
-    return [MorlocSerialType.MORLOC_NIL]
-
-def schema_bool():
-    return [MorlocSerialType.MORLOC_BOOL]
-
-def schema_int():
-    return [MorlocSerialType.MORLOC_INT]
-
-def schema_float():
-    return [MorlocSerialType.MORLOC_FLOAT]
-
-def schema_string():
-    return [MorlocSerialType.MORLOC_STRING]
-
-def schema_binary():
-    return [MorlocSerialType.MORLOC_BINARY]
-
-def schema_array(element_schema):
-    return [MorlocSerialType.MORLOC_ARRAY, [element_schema]]
-
-def schema_map(key_value_schemas: Dict[str, List]):
-    return [MorlocSerialType.MORLOC_MAP, key_value_schemas]
-
-def schema_tuple(*element_schemas):
-    return [MorlocSerialType.MORLOC_TUPLE, list(element_schemas)]
-
-def schema_bool_array():
-    return [MorlocSerialType.MORLOC_BOOL_ARRAY]
-
-def schema_int_array():
-    return [MorlocSerialType.MORLOC_INT_ARRAY]
-
-def schema_float_array():
-    return [MorlocSerialType.MORLOC_FLOAT_ARRAY]
-
-
-
 class ParsedData(ctypes.Structure):
     pass
 
@@ -128,74 +53,70 @@ ParsedData._fields_ = [
     ("data", _Data)
 ]
 
-def python_to_parsed_data(data, schema, key = None) -> ParsedData:
+def python_to_parsed_data(data, key = None) -> ParsedData:
     pd = ParsedData()
 
     if isinstance(key, str):
         pd.key = key.encode('utf-8')
 
-    # If schema is a pointer, dereference it
-    if isinstance(schema, ctypes.POINTER(Schema)):
-        schema = schema.contents
-
-    pd.type = schema.type
-
-    if schema.type == MorlocSerialType.MORLOC_NIL:
+    if data is None:
         pd.size = 0
         pd.data.nil_val = b'\x00'
-    elif schema.type == MorlocSerialType.MORLOC_BOOL:
+    elif isinstance(data, bool):
         pd.size = 0
         pd.data.bool_val = data
-    elif schema.type == MorlocSerialType.MORLOC_INT:
+    elif isinstance(data, int):
         pd.size = 0
         pd.data.int_val = data
-    elif schema.type == MorlocSerialType.MORLOC_FLOAT:
+    elif isinstance(data, float):
         pd.size = 0
         pd.data.double_val = data
-    elif schema.type == MorlocSerialType.MORLOC_STRING:
+    elif isinstance(data, str):
         encoded = data.encode('utf-8')
         pd.size = len(encoded)
         buffer = ctypes.create_string_buffer(encoded)
         pd.data.char_arr = ctypes.cast(buffer, ctypes.POINTER(ctypes.c_char))
-    elif schema.type == MorlocSerialType.MORLOC_BINARY:
+    elif isinstance(data, bytes):
         pd.size = len(data)
         buffer = ctypes.create_string_buffer(data)
         pd.data.char_arr = ctypes.cast(buffer, ctypes.POINTER(ctypes.c_char))
-    elif schema.type == MorlocSerialType.MORLOC_ARRAY:
+    elif isinstance(data, list):
+        if(len(data) > 0):
+            if isinstance(data[0], bool):
+                pd.size = len(data)
+                arr = (ctypes.c_bool * pd.size)(*data)
+                pd.data.bool_arr = arr
+            elif isinstance(data[0], int):
+                pd.size = len(data)
+                arr = (ctypes.c_int * pd.size)(*data)
+                pd.data.int_arr = arr
+            elif isinstance(data[0], float):
+                pd.size = len(data)
+                arr = (ctypes.c_double * pd.size)(*data)
+                pd.data.float_arr = arr
+            else:
+                pd.size = len(data)
+                arr = (ParsedDataPtr * pd.size)()
+                for i, item in enumerate(data):
+                    arr[i] = ctypes.pointer(python_to_parsed_data(item))
+                pd.data.obj_arr = arr
+        else:
+            # handle empty list
+            pd.size = len(data)
+            arr = (ParsedDataPtr * pd.size)()
+            pd.data.obj_arr = arr
+    elif isinstance(data, dict):
+        pd.size = len(data)
+        arr = (ParsedDataPtr * pd.size)()
+        for (i, (k, v)) in enumerate(data.items()):
+            arr[i] = ctypes.pointer(python_to_parsed_data(v, key=k))
+        pd.data.obj_arr = arr
+    elif isinstance(data, tuple):
         pd.size = len(data)
         arr = (ParsedDataPtr * pd.size)()
         for i, item in enumerate(data):
-            arr[i] = ctypes.pointer(python_to_parsed_data(item, schema.parameters[0]))
+            arr[i] = ctypes.pointer(python_to_parsed_data(item))
         pd.data.obj_arr = arr
-    elif schema.type == MorlocSerialType.MORLOC_MAP:
-        pd.size = len(data)
-        arr = (ParsedDataPtr * pd.size)()
-        for (i, (k, v)), v_schema in zip(enumerate(data.items()), schema.parameters):
-            arr[i] = ctypes.pointer(python_to_parsed_data(v, v_schema, key=k))
-        pd.data.obj_arr = arr
-    elif schema.type == MorlocSerialType.MORLOC_TUPLE:
-        pd.size = len(data)
-        arr = (ParsedDataPtr * pd.size)()
-        for i, (item, item_schema) in enumerate(zip(data, schema.parameters)):
-            arr[i] = ctypes.pointer(python_to_parsed_data(item, item_schema))
-        pd.data.obj_arr = arr
-    elif schema.type == MorlocSerialType.MORLOC_BOOL_ARRAY:
-        pd.size = len(data)
-        arr = (ctypes.c_bool * pd.size)(*data)
-        pd.data.bool_arr = arr
-    elif schema.type == MorlocSerialType.MORLOC_INT_ARRAY:
-        pd.size = len(data)
-        arr = (ctypes.c_int * pd.size)(*data)
-        pd.data.int_arr = arr
-    elif schema.type == MorlocSerialType.MORLOC_FLOAT_ARRAY:
-        pd.size = len(data)
-        arr = (ctypes.c_double * pd.size)(*data)
-        pd.data.float_arr = arr
-    elif schema.type == MorlocSerialType.MORLOC_EXT:
-        raise NotImplementedError("MORLOC_EXT type is not supported")
-    else:
-        raise ValueError(f"Unknown schema type: {schema.type}")
-
     return pd
 
 def parsed_data_to_python(pd: ParsedData) -> Union[None, bool, int, float, str, bytes, List, Dict, Tuple]:
@@ -230,20 +151,28 @@ def parsed_data_to_python(pd: ParsedData) -> Union[None, bool, int, float, str, 
         raise ValueError(f"Unknown ParsedData type: {pd.type}")
 
 
+
+
+
 # Load the shared library
 lib = ctypes.CDLL('./mlcmpack.so')
 
 # Update the function signatures
-lib.pack.argtypes = [ctypes.POINTER(ParsedData), ctypes.POINTER(Schema), ctypes.POINTER(ctypes.POINTER(ctypes.c_char)), ctypes.POINTER(ctypes.c_size_t)]
+lib.pack.argtypes = [ctypes.POINTER(ParsedData), ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(ctypes.c_char)), ctypes.POINTER(ctypes.c_size_t)]
 lib.pack.restype = ctypes.c_int
 
-lib.unpack.argtypes = [ctypes.POINTER(ctypes.c_char), ctypes.c_size_t, ctypes.POINTER(Schema), ctypes.POINTER(ctypes.POINTER(ParsedData))]
+lib.unpack.argtypes = [ctypes.POINTER(ctypes.c_char), ctypes.c_size_t, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(ParsedData))]
 lib.unpack.restype = ctypes.c_int
 
-def pack_data(data: ParsedData, schema: Schema) -> bytes:
+def pack_data(data: ParsedData, schema: str) -> bytes:
     out_data = ctypes.POINTER(ctypes.c_char)()
     out_size = ctypes.c_size_t()
-    result = lib.pack(ctypes.byref(data), ctypes.byref(schema), ctypes.byref(out_data), ctypes.byref(out_size))
+    
+    # Convert Python string to bytes, then to c_char_p
+    schema_bytes = schema.encode('utf-8')
+    schema_c_str = ctypes.c_char_p(schema_bytes)
+    
+    result = lib.pack(ctypes.byref(data), schema_c_str, ctypes.byref(out_data), ctypes.byref(out_size))
     if result != 0:
         raise RuntimeError("Packing failed")
 
@@ -251,11 +180,16 @@ def pack_data(data: ParsedData, schema: Schema) -> bytes:
 
     return packed_data
 
-def unpack_data(packed_data: bytes, schema: Schema) -> ParsedData:
+
+def unpack_data(packed_data: bytes, schema: str) -> ParsedData:
     data_ptr = ctypes.cast(packed_data, ctypes.POINTER(ctypes.c_char))
     out_data = ctypes.POINTER(ParsedData)()
 
-    result = lib.unpack(data_ptr, len(packed_data), ctypes.byref(schema), ctypes.byref(out_data))
+    # Convert Python string to bytes, then to c_char_p
+    schema_bytes = schema.encode('utf-8')
+    schema_c_str = ctypes.c_char_p(schema_bytes)
+
+    result = lib.unpack(data_ptr, len(packed_data), schema_c_str, ctypes.byref(out_data))
     if result != 0:
         raise RuntimeError("Unpacking failed")
 
@@ -263,6 +197,7 @@ def unpack_data(packed_data: bytes, schema: Schema) -> ParsedData:
     parsed_data = copy_parsed_data(out_data.contents)
 
     return parsed_data
+
 
 def copy_parsed_data(data: ParsedData) -> ParsedData:
     new_data = ParsedData()
@@ -349,19 +284,44 @@ def generate_test_integers():
     # lazy solution to the edge cases generated above that overflow at the 32bits
     return [x for x in all_values if x > min_int and x < max_int]
 
+
+def schema_size(number: int) -> str:
+    """
+    Convert a number between 0 and 63 to its corresponding character.
+    
+    :param number: An integer between 0 and 63
+    :return: The corresponding character
+    """
+    if not (0 <= number <= 63):
+        raise ValueError("Number must be between 0 and 63")
+
+    if 0 <= number <= 9:
+        return chr(ord('0') + number)
+    elif 10 <= number <= 35:
+        return chr(ord('a') + (number - 10))
+    elif 36 <= number <= 61:
+        return chr(ord('A') + (number - 36))
+    elif number == 62:
+        return '+'
+    elif number == 63:
+        return '/'
+    else:
+        raise ValueError("Invalid number")  # This should never happen due to the initial check
+
 def run_tests():
-    big_schema = schema_map({
-        "null_value": schema_nil(),
-        "boolean": schema_bool(),
-        "integer": schema_int(),
-        "float": schema_float(),
-        "binary": schema_binary(),
-        "string": schema_string(),
-        "binary_string": schema_string(),
-        "array": schema_int_array(),
-        "nested_map": schema_map({"a": schema_int(), "b": schema_int()}),
-        "tuple": schema_tuple(schema_int(), schema_bool(), schema_int())
-    })
+    big_schema_dict = {
+        "null_value": "z",
+        "boolean": "b",
+        "integer": "i4",
+        "float": "f8",
+        "binary": "r",
+        "string": "s",
+        "array": "ai4",
+        "nested_map": "m21ai41bi4",
+        "tuple": "t3i4bi4"
+    }
+
+    big_schema = "m" + schema_size(len(big_schema_dict)) + "".join([schema_size(len(k)) + k + v for (k, v) in big_schema_dict.items()])
 
     big_data = {
         "null_value": None,
@@ -370,63 +330,59 @@ def run_tests():
         "float": 3.14,
         "binary": b'\x10\x01\x02\x03',
         "string": "Hello, World!",
-        "binary_string": "a1234",
         "array": list(range(5)),
         "nested_map": {"a": 1, "b": 2},
         "tuple": (4, True, 6),
     }
     test_cases = [
-        ("Empty string", schema_string(), ""),
-        ("Single character string", schema_string(), "x"),
-        ("Large string", schema_string(), "x" * 1000000),
-        ("Boolean true", schema_bool(), True),
-        ("Boolean false", schema_bool(), False),
-        ("Negative integer", schema_int(), -1000000),
-        ("Positive integer", schema_int(), 1000000),
-        ("Positive float", schema_float(), 6.9420),
-        ("Negative float", schema_float(), -6.9420),
-        ("Empty binary", schema_binary(), b''),
-        ("Binary with prefix", schema_binary(), b'\x00susan'),
-        ("Large binary", schema_binary(), b'x' * 1000000),
+        ("Empty string", "s", ""),
+        ("Single character string", "s", "x"),
+        ("Large string", "s", "x" * 1000000),
+        ("Boolean true", "b", True),
+        ("Boolean false", "b", False),
+        ("Negative integer", "i4", -1000000),
+        ("Positive integer", "i4", 1000000),
+        ("Positive float", "f8", 6.9420),
+        ("Negative float", "f8", -6.9420),
+        ("Empty binary", "r", b''),
+        ("Binary with prefix", "r", b'\x00susan'),
+        ("Large binary", "r", b'x' * 1000000),
         #
-        ("Empty boolean array", schema_bool_array(), []),
-        ("Single boolean array", schema_bool_array(), [True]),
-        ("Large boolean array", schema_bool_array(), [True, False] * 10000),
+        ("Empty boolean array", "ab", []),
+        ("Single boolean array", "ab", [True]),
+        ("Large boolean array", "ab", [True, False] * 10000),
         #
-        ("Empty integer array", schema_int_array(), []),
-        ("Single integer array", schema_int_array(), list(range(1))),
-        ("Special ints", schema_int_array(), [-129, -32769]), # yes, these specific integers failed
-        ("Test integers", schema_int_array(), generate_test_integers()),
-        ("Small integer array with negatives", schema_int_array(), list(range(10)) + [-1 * i for i in range(10)]),
-        ("Large integer array with negatives", schema_int_array(), list(range(500000)) + [-1 * i for i in range(500000)] + []),
-        ("Large integer array of positives", schema_int_array(), list(range(1000000))),
-        
-        ("Empty float array", schema_float_array(), []),
-        ("Single float array", schema_float_array(), [1]),
-        ("Large float array with negatives", schema_float_array(), list(range(10000)) + [-1 * i for i in range(10000)]),
-        ("Very large float array", schema_float_array(), list(range(1000000))),
+        ("Empty integer array", "ai4", []),
+        ("Single integer array", "ai4", list(range(1))),
+        ("Special ints", "ai4", [-129, -32769]), # yes, these specific integers failed
+        ("Test integers", "ai4", generate_test_integers()),
+        ("Small integer array with negatives", "ai4", list(range(10)) + [-1 * i for i in range(10)]),
+        ("Large integer array with negatives", "ai4", list(range(500000)) + [-1 * i for i in range(500000)] + []),
+        ("Large integer array of positives", "ai4", list(range(1000000))),
         #
-        ("String array with increasing size strings", schema_array(schema_string()), ["x" * i for i in range(5000)]),
-        ("String array with repeated elements (small)", schema_array(schema_string()), ["as44" for _ in range(10000)]),
-        ("String array with repeated elements (large)", schema_array(schema_string()), ["as44" for _ in range(100000)]),
+        ("Empty float array", "af8", []),
+        ("Single float array", "af8", [float(1)]),
+        ("Large float array with negatives", "af8", [float(x) for x in list(range(10000)) + [-1 * i for i in range(10000)]]),
+        ("Very large float array", "af8", [float(x) for x in range(1000000)]),
         #
-        ("Tuple with bool and int", schema_tuple(schema_bool(), schema_int()), (False, 42069)),
-        ("Map with bool and int keys", schema_map({"a": schema_bool(), "b": schema_int()}), {"a": True, "b": 42}),
+        ("String array with increasing size strings", "as", ["x" * i for i in range(5000)]),
+        ("String array with repeated elements (small)", "as", ["as44" for _ in range(10000)]),
+        ("String array with repeated elements (large)", "as", ["as44" for _ in range(100000)]),
+        #
+        ("Tuple with bool and int", "t2bi4", (False, 42069)),
+        ("Map with bool and int keys", "m21ab1bi4", {"a": True, "b": 42}),
         #
         ("Complex nested structure", big_schema, big_data)
     ]
 
     max_width = max(len(desc) for (desc, _, _) in test_cases) + 2
 
-    for description, py_schema, data in test_cases:
+    for description, schema, data in test_cases:
         start_time = time.time()
 
         try:
-            # Convert Python schema to C
-            schema = python_schema_to_c(py_schema)
-
             # Convert Python data to ParsedData
-            parsed_data = python_to_parsed_data(data, schema)
+            parsed_data = python_to_parsed_data(data)
 
             # Pack the data
             packed_data = pack_data(parsed_data, schema)
@@ -436,6 +392,16 @@ def run_tests():
 
             # Convert ParsedData back to Python
             result = parsed_data_to_python(unpacked_data)
+
+            end_time = time.time()
+
+            elapsed_time = end_time - start_time
+
+            if result == data:
+                print(f"{description:<{max_width}} {Fore.GREEN}pass{Style.RESET_ALL} ({elapsed_time:.4f}s)")
+            else:
+                print(f"{description:<{max_width}} {Fore.RED}fail{Style.RESET_ALL}")
+                print(f"Error: Result does not match expected data")
 
         except Exception as e:
             print(f"{description:<{max_width}} {Fore.RED}fail{Style.RESET_ALL}")

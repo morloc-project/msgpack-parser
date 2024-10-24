@@ -5,33 +5,30 @@
 #define RUN_TEST(name) do { printf("Running test_%s ... ", #name); test_##name(); printf("\033[0;32mpassed\033[0m\n", #name); } while(0)
 
 TEST(pack_nil) {
-    Schema* schema = nil_schema();
     ParsedData* data = nil_data();
     char* packet = NULL;
     size_t packet_size = 0;
-    int result = pack_with_schema(data, schema, &packet, &packet_size);
+    int result = pack(data, "z", &packet, &packet_size);
     assert(result == 0);
     assert(packet_size == 1);
     assert((unsigned char)packet[0] == 0xc0); // MessagePack encoding for nil
     free(packet);
     free_parsed_data(data);
-    free_schema(schema);
 }
 
 TEST(pack_bool) {
-    Schema* schema = bool_schema();
     ParsedData* data_true = bool_data(true);
     ParsedData* data_false = bool_data(false);
     char* packet = NULL;
     size_t packet_size = 0;
 
-    int result = pack_with_schema(data_true, schema, &packet, &packet_size);
+    int result = pack(data_true, "b", &packet, &packet_size);
     assert(result == 0);
     assert(packet_size == 1);
     assert((unsigned char)packet[0] == 0xc3); // MessagePack encoding for true
     free(packet);
 
-    result = pack_with_schema(data_false, schema, &packet, &packet_size);
+    result = pack(data_false, "b", &packet, &packet_size);
     assert(result == 0);
     assert(packet_size == 1);
     assert((unsigned char)packet[0] == 0xc2); // MessagePack encoding for false
@@ -39,23 +36,21 @@ TEST(pack_bool) {
 
     free_parsed_data(data_true);
     free_parsed_data(data_false);
-    free_schema(schema);
 }
 
 TEST(pack_sint) {
-    Schema* schema = int_schema();
     ParsedData* data_positive = int_data(42);
     ParsedData* data_negative = int_data(-42);
     char* packet = NULL;
     size_t packet_size = 0;
 
-    int result = pack_with_schema(data_positive, schema, &packet, &packet_size);
+    int result = pack(data_positive, "i4", &packet, &packet_size);
     assert(result == 0);
     assert(packet_size == 1);
     assert((unsigned char)packet[0] == 0x2A); // MessagePack encoding for 42
     free(packet);
 
-    result = pack_with_schema(data_negative, schema, &packet, &packet_size);
+    result = pack(data_negative, "i4", &packet, &packet_size);
     assert(result == 0);
     assert(packet_size == 2);
     assert((unsigned char)packet[0] == 0xD0 && (unsigned char)packet[1] == 0xD6); // MessagePack encoding for -42
@@ -63,32 +58,28 @@ TEST(pack_sint) {
 
     free_parsed_data(data_positive);
     free_parsed_data(data_negative);
-    free_schema(schema);
 }
 
 TEST(pack_uint) {
-    Schema* schema = int_schema();
     ParsedData* data = int_data(300);
     char* packet = NULL;
     size_t packet_size = 0;
 
-    int result = pack_with_schema(data, schema, &packet, &packet_size);
+    int result = pack(data, "i4", &packet, &packet_size);
     assert(result == 0);
     assert(packet_size == 3);
     assert((unsigned char)packet[0] == 0xCD && (unsigned char)packet[1] == 0x01 && (unsigned char)packet[2] == 0x2C); // MessagePack encoding for 300
     free(packet);
 
     free_parsed_data(data);
-    free_schema(schema);
 }
 
 TEST(pack_float) {
-    Schema* schema = float_schema();
     ParsedData* data = float_data(3.14);
     char* packet = NULL;
     size_t packet_size = 0;
 
-    int result = pack_with_schema(data, schema, &packet, &packet_size);
+    int result = pack(data, "f8", &packet, &packet_size);
     assert(result == 0);
     assert(packet_size == 9);
     assert((unsigned char)packet[0] == 0xCB); // MessagePack encoding for double
@@ -96,16 +87,14 @@ TEST(pack_float) {
     free(packet);
 
     free_parsed_data(data);
-    free_schema(schema);
 }
 
 TEST(pack_string) {
-    Schema* schema = string_schema();
     ParsedData* data = string_data("hello", 5);
     char* packet = NULL;
     size_t packet_size = 0;
 
-    int result = pack_with_schema(data, schema, &packet, &packet_size);
+    int result = pack(data, "s", &packet, &packet_size);
     assert(result == 0);
     assert(packet_size == 6);
     assert((unsigned char)packet[0] == 0xA5); // MessagePack encoding for string of length 5
@@ -113,17 +102,15 @@ TEST(pack_string) {
     free(packet);
 
     free_parsed_data(data);
-    free_schema(schema);
 }
 
 TEST(pack_binary) {
-    Schema* schema = binary_schema();
     const char x[] = {0x01, 0x02, 0x03};
     ParsedData* data = binary_data(x, 3);
     char* packet = NULL;
     size_t packet_size = 0;
 
-    int result = pack_with_schema(data, schema, &packet, &packet_size);
+    int result = pack(data, "r", &packet, &packet_size);
     assert(result == 0);
     assert(packet_size == 5);
     assert((unsigned char)packet[0] == 0xC4 && (unsigned char)packet[1] == 0x03); // MessagePack encoding for binary data of length 3
@@ -131,17 +118,15 @@ TEST(pack_binary) {
     free(packet);
 
     free_parsed_data(data);
-    free_schema(schema);
 }
 
 TEST(pack_array_bool) {
-    Schema* schema = bool_array_schema();
     bool values[] = {true, false, true};
     ParsedData* data = array_bool_data(values, 3);
     char* packet = NULL;
     size_t packet_size = 0;
 
-    int result = pack_with_schema(data, schema, &packet, &packet_size);
+    int result = pack(data, "ab", &packet, &packet_size);
     assert(result == 0);
     assert(packet_size == 4);
     assert((unsigned char)packet[0] == 0x93); // MessagePack encoding for array of length 3
@@ -149,17 +134,15 @@ TEST(pack_array_bool) {
     free(packet);
 
     free_parsed_data(data);
-    free_schema(schema);
 }
 
 TEST(pack_array_sint) {
-    Schema* schema = int_array_schema();
     int values[] = {1, -2, 3};
     ParsedData* data = array_int_data(values, 3);
     char* packet = NULL;
     size_t packet_size = 0;
 
-    int result = pack_with_schema(data, schema, &packet, &packet_size);
+    int result = pack(data, "ai4", &packet, &packet_size);
     assert(result == 0);
     assert(packet_size == 4);
     assert((unsigned char)packet[0] == 0x93); // MessagePack encoding for array of length 3
@@ -167,17 +150,15 @@ TEST(pack_array_sint) {
     free(packet);
 
     free_parsed_data(data);
-    free_schema(schema);
 }
 
 TEST(pack_array_uint) {
-    Schema* schema = int_array_schema();
     unsigned int values[] = {1, 2, 300};
     ParsedData* data = array_int_data(values, 3);
     char* packet = NULL;
     size_t packet_size = 0;
 
-    int result = pack_with_schema(data, schema, &packet, &packet_size);
+    int result = pack(data, "ai4", &packet, &packet_size);
     assert(result == 0);
     assert(packet_size == 6);
     assert((unsigned char)packet[0] == 0x93); // MessagePack encoding for array of length 3
@@ -186,17 +167,15 @@ TEST(pack_array_uint) {
     free(packet);
 
     free_parsed_data(data);
-    free_schema(schema);
 }
 
 TEST(pack_array_float) {
-    Schema* schema = float_array_schema();
     double values[] = {1.1, 2.2, 3.3};
     ParsedData* data = array_float_data(values, 3);
     char* packet = NULL;
     size_t packet_size = 0;
 
-    int result = pack_with_schema(data, schema, &packet, &packet_size);
+    int result = pack(data, "af8", &packet, &packet_size);
 
     /* printf("packet_size = %zu\n", packet_size); */
     /* print_hex(packet, packet_size);             */
@@ -210,11 +189,9 @@ TEST(pack_array_float) {
     free(packet);
 
     free_parsed_data(data);
-    free_schema(schema);
 }
 
 TEST(pack_tuple) {
-    Schema* schema = tuple_schema(3, int_schema(), float_schema(), string_schema());
     ParsedData* data = tuple_data_(3);
     data->data.obj_arr[0] = int_data(42);
     data->data.obj_arr[1] = float_data(3.14);
@@ -222,7 +199,7 @@ TEST(pack_tuple) {
     char* packet = NULL;
     size_t packet_size = 0;
 
-    int result = pack_with_schema(data, schema, &packet, &packet_size);
+    int result = pack(data, "t3i4f8s", &packet, &packet_size);
 
     /* printf("packet_size = %zu\n", packet_size); */
     /* print_hex(packet, packet_size);             */
@@ -236,20 +213,16 @@ TEST(pack_tuple) {
     free(packet);
 
     free_parsed_data(data);
-    free_schema(schema);
 }
 
 TEST(pack_map) {
-    SchemaKeyValuePair* kvp1 = kvp_schema("key1", int_schema());
-    SchemaKeyValuePair* kvp2 = kvp_schema("key2", string_schema());
-    Schema* schema = map_schema(2, kvp1, kvp2);
     ParsedData* data = map_data_(2);
     set_map_element(data, 0, "key1", int_data(42));
     set_map_element(data, 1, "key2", string_data("value", 5));
     char* packet = NULL;
     size_t packet_size = 0;
 
-    int result = pack_with_schema(data, schema, &packet, &packet_size);
+    int result = pack(data, "m24key1i44key2s", &packet, &packet_size);
 
     /* printf("packet_size = %zu\n", packet_size); */
     /* print_hex(packet, packet_size);             */
@@ -262,39 +235,34 @@ TEST(pack_map) {
     assert((unsigned char)packet[0] == 0x82); // MessagePack encoding for map of size 2
     free(packet);
     free_parsed_data(data);
-    free_schema(schema);
 }
 
 TEST(pack_empty_array) {
-    Schema* schema = array_schema(int_schema());
     ParsedData* data = array_data_(0);
     char* packet = NULL;
     size_t packet_size = 0;
 
-    int result = pack_with_schema(data, schema, &packet, &packet_size);
+    int result = pack(data, "ai4", &packet, &packet_size);
     assert(result == 0);
     assert(packet_size == 1);
     assert((unsigned char)packet[0] == 0x90); // MessagePack encoding for empty array
     free(packet);
 
     free_parsed_data(data);
-    free_schema(schema);
 }
 
 TEST(pack_empty_map) {
-    Schema* schema = map_schema(0);
     ParsedData* data = map_data_(0);
     char* packet = NULL;
     size_t packet_size = 0;
 
-    int result = pack_with_schema(data, schema, &packet, &packet_size);
+    int result = pack(data, "m0", &packet, &packet_size);
     assert(result == 0);
     assert(packet_size == 1);
     assert((unsigned char)packet[0] == 0x80); // MessagePack encoding for empty map
     free(packet);
 
     free_parsed_data(data);
-    free_schema(schema);
 }
 
 int main() {
