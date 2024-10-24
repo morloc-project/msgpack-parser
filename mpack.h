@@ -109,6 +109,7 @@ MPACK_API mpack_token_t mpack_pack_nil(void) FUNUSED FPURE;
 MPACK_API mpack_token_t mpack_pack_boolean(unsigned v) FUNUSED FPURE;
 MPACK_API mpack_token_t mpack_pack_uint(mpack_uintmax_t v) FUNUSED FPURE;
 MPACK_API mpack_token_t mpack_pack_sint(mpack_sintmax_t v) FUNUSED FPURE;
+MPACK_API mpack_token_t mpack_pack_int32(int v) FUNUSED FPURE;
 MPACK_API mpack_token_t mpack_pack_float_compat(double v) FUNUSED FPURE;
 MPACK_API mpack_token_t mpack_pack_float_fast(double v) FUNUSED FPURE;
 MPACK_API mpack_token_t mpack_pack_number(double v) FUNUSED FPURE;
@@ -121,6 +122,10 @@ MPACK_API mpack_token_t mpack_pack_map(mpack_uint32_t l) FUNUSED FPURE;
 MPACK_API bool mpack_unpack_boolean(mpack_token_t t) FUNUSED FPURE;
 MPACK_API mpack_uintmax_t mpack_unpack_uint(mpack_token_t t) FUNUSED FPURE;
 MPACK_API mpack_sintmax_t mpack_unpack_sint(mpack_token_t t) FUNUSED FPURE;
+
+MPACK_API int mpack_unpack_uint32(mpack_token_t t) FUNUSED FPURE;
+MPACK_API int mpack_unpack_sint32(mpack_token_t t) FUNUSED FPURE;
+
 MPACK_API double mpack_unpack_float_fast(mpack_token_t t) FUNUSED FPURE;
 MPACK_API double mpack_unpack_float_compat(mpack_token_t t) FUNUSED FPURE;
 MPACK_API double mpack_unpack_number(mpack_token_t t) FUNUSED FPURE;

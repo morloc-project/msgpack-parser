@@ -706,20 +706,20 @@ static int mpack_wnint(char **buf, size_t *buflen, mpack_value_t val)
   mpack_uint32_t hi = val.hi;
   mpack_uint32_t lo = val.lo;
 
-  if (lo < 0x80000000) {
+  if (lo <= 0x80000000) {
     /* int 64 */
     return mpack_w1(buf, buflen, 0xd3) ||
            mpack_w4(buf, buflen, hi)   ||
            mpack_w4(buf, buflen, lo);
-  } else if (lo < 0xffff7fff) {
+  } else if (lo <= 0xffff7fff) {
     /* int 32 */
     return mpack_w1(buf, buflen, 0xd2) ||
            mpack_w4(buf, buflen, lo);
-  } else if (lo < 0xffffff7f) {
+  } else if (lo <= 0xffffff7f) {
     /* int 16 */
     return mpack_w1(buf, buflen, 0xd1) ||
            mpack_w2(buf, buflen, lo);
-  } else if (lo < 0xffffffe0) {
+  } else if (lo <= 0xffffffe0) {
     /* int 8 */
     return mpack_w1(buf, buflen, 0xd0) ||
            mpack_w1(buf, buflen, lo);
@@ -935,6 +935,15 @@ MPACK_API mpack_token_t mpack_pack_sint(mpack_sintmax_t v)
   return mpack_pack_uint((mpack_uintmax_t)v);
 }
 
+MPACK_API mpack_token_t mpack_pack_int32(int v){
+  mpack_token_t rv;
+  rv.data.value.lo = v;
+  rv.data.value.hi = 0;
+  rv.type = (v >= 0) * MPACK_TOKEN_UINT +
+            (v < 0) * MPACK_TOKEN_SINT;
+  return rv;
+}
+
 MPACK_API mpack_token_t mpack_pack_float_compat(double v)
 {
   /* ieee754 single-precision limits to determine if "v" can be fully
@@ -1080,6 +1089,11 @@ MPACK_API mpack_uintmax_t mpack_unpack_uint(mpack_token_t t)
   return (((mpack_uintmax_t)t.data.value.hi << 31) << 1) | t.data.value.lo;
 }
 
+MPACK_API int mpack_unpack_uint32(mpack_token_t t)
+{
+  return (int) t.data.value.lo;
+}
+
 /* unpack signed integer without relying on two's complement as internal
  * representation */
 MPACK_API mpack_sintmax_t mpack_unpack_sint(mpack_token_t t)
@@ -1094,6 +1108,7 @@ MPACK_API mpack_sintmax_t mpack_unpack_sint(mpack_token_t t)
   if (t.length == 8) {
     rv |= (((mpack_uintmax_t)hi) << 31) << 1;
   }
+
   /* reverse the two's complement so that lo/hi contain the absolute value.
    * note that we have to mask ~rv so that it reflects the two's complement
    * of the appropriate byte length */
@@ -1102,6 +1117,14 @@ MPACK_API mpack_sintmax_t mpack_unpack_sint(mpack_token_t t)
    * represent the positive cast. */
   return -((mpack_sintmax_t)(rv - 1)) - 1;
 }
+
+MPACK_API int mpack_unpack_sint32(mpack_token_t t)
+{
+  int rv = (int)t.data.value.lo;
+  rv = ~rv + 1;
+  return -(rv - 1) - 1;
+}
+
 
 MPACK_API double mpack_unpack_float_compat(mpack_token_t t)
 {

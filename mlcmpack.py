@@ -4,6 +4,12 @@ import ctypes
 from enum import IntEnum
 from typing import Union, List, Dict, Tuple
 
+import time
+from colorama import Fore, Style, init
+
+# Initialize colorama
+init(autoreset=True)
+
 def hex(xs: bytes) -> str:
     return ' '.join('{:02x}'.format(x) for x in xs)
 
@@ -35,7 +41,7 @@ Schema._fields_ = [
 def python_schema_to_c(py_schema):
     c_schema = Schema()
     c_schema.type = py_schema[0]
-    
+
     if len(py_schema) > 1:
         if isinstance(py_schema[1], list):
             c_schema.size = len(py_schema[1])
@@ -55,7 +61,7 @@ def python_schema_to_c(py_schema):
         c_schema.size = 0
         c_schema.parameters = None
         c_schema.keys = None
-    
+
     return c_schema
 
 # Wrapper functions for easily building schema objects
@@ -255,7 +261,7 @@ def unpack_data(packed_data: bytes, schema: Schema) -> ParsedData:
 
     # Create a deep copy of the ParsedData
     parsed_data = copy_parsed_data(out_data.contents)
-    
+
     return parsed_data
 
 def copy_parsed_data(data: ParsedData) -> ParsedData:
@@ -307,9 +313,43 @@ def copy_parsed_data(data: ParsedData) -> ParsedData:
     return new_data
 
 
+def generate_test_integers():
+    # Maximum and minimum 32-bit signed integers
+    max_int = 2**31 - 1
+    min_int = -2**31
 
-if __name__ == "__main__":
+    # Generate 1024 evenly spaced values
+    step = (max_int - min_int) // 1023
+    main_range = list(range(max_int, min_int, -step))
 
+    # Generate powers of 2, their +/- 1 values, and sums of powers of 2
+    powers_of_2 = []
+    sums_of_powers = []
+    current_sum = 0
+    for i in range(31):  # 31 because 2^31 is already the max signed 32-bit int
+        base = 2**i
+        current_sum += base
+    
+        # Individual powers of 2 and their +/- 1 values
+        powers_of_2.extend([base - 1, base, base + 1, -(base - 1), -base, -(base + 1)])
+    
+        # Sums of powers of 2 and their +/- 1 values
+        sums_of_powers.extend([current_sum - 1, current_sum, current_sum + 1,
+                               -(current_sum - 1), -current_sum, -(current_sum + 1)])
+    
+        # Add intermediate sums (e.g., 2^3 + 2^2)
+        if i > 0:
+            intermediate_sum = base + 2**(i-1)
+            sums_of_powers.extend([intermediate_sum - 1, intermediate_sum, intermediate_sum + 1,
+                                   -(intermediate_sum - 1), -intermediate_sum, -(intermediate_sum + 1)])
+
+    # Combine all values, remove duplicates, and sort
+    all_values = sorted(set(main_range + powers_of_2 + sums_of_powers), reverse=True)
+
+    # lazy solution to the edge cases generated above that overflow at the 32bits
+    return [x for x in all_values if x > min_int and x < max_int]
+
+def run_tests():
     big_schema = schema_map({
         "null_value": schema_nil(),
         "boolean": schema_bool(),
@@ -335,63 +375,72 @@ if __name__ == "__main__":
         "nested_map": {"a": 1, "b": 2},
         "tuple": (4, True, 6),
     }
-
-    pairs = [
-        (schema_string(), ""),
-        (schema_string(), "x"),
-        (schema_string(), "x" * 1000000),
-        (schema_bool(), True),
-        (schema_bool(), False),
-        (schema_int(), -1000000),
-        (schema_int(), 1000000),
-        (schema_float(), 6.9420),
-        (schema_float(), -6.9420),
-        (schema_binary(), b''),
-        (schema_binary(), b'\x00susan'),
-        (schema_binary(), b'x' * 1000000),
-
-
-        (schema_bool_array(), []),
-        (schema_bool_array(), [True]),
-        (schema_bool_array(), [True, False] * 10000),
-
-        (schema_int_array(), []),
-        (schema_int_array(), list(range(1))),
-        (schema_int_array(), list(range(500000)) + -1 * list(range(500000))),
-
-        (schema_float_array(), []),
-        (schema_float_array(), [1]),
-        (schema_float_array(), list(range(10000)) + -1 * list(range(10000))),
-        (schema_float_array(), list(range(1000000))),
-
-        (schema_array(schema_string()), ["x" * i for i in range(5000)]),
-        (schema_array(schema_string()), ["as44" for _ in range(10000)]),
-        (schema_array(schema_string()), ["as44" for _ in range(100000)]),
-
-        (schema_tuple(schema_bool(), schema_int()), (False, 42069)),
-        (schema_tuple(schema_bool(), schema_int()), (False, 42069)),
-        (schema_map({"a": schema_bool(), "b": schema_int()}), {"a": True, "b": 42}),
-
-        (big_schema, big_data),
+    test_cases = [
+        ("Empty string", schema_string(), ""),
+        ("Single character string", schema_string(), "x"),
+        ("Large string", schema_string(), "x" * 1000000),
+        ("Boolean true", schema_bool(), True),
+        ("Boolean false", schema_bool(), False),
+        ("Negative integer", schema_int(), -1000000),
+        ("Positive integer", schema_int(), 1000000),
+        ("Positive float", schema_float(), 6.9420),
+        ("Negative float", schema_float(), -6.9420),
+        ("Empty binary", schema_binary(), b''),
+        ("Binary with prefix", schema_binary(), b'\x00susan'),
+        ("Large binary", schema_binary(), b'x' * 1000000),
+        #
+        ("Empty boolean array", schema_bool_array(), []),
+        ("Single boolean array", schema_bool_array(), [True]),
+        ("Large boolean array", schema_bool_array(), [True, False] * 10000),
+        #
+        ("Empty integer array", schema_int_array(), []),
+        ("Single integer array", schema_int_array(), list(range(1))),
+        ("Special ints", schema_int_array(), [-129, -32769]), # yes, these specific integers failed
+        ("Test integers", schema_int_array(), generate_test_integers()),
+        ("Small integer array with negatives", schema_int_array(), list(range(10)) + [-1 * i for i in range(10)]),
+        ("Large integer array with negatives", schema_int_array(), list(range(500000)) + [-1 * i for i in range(500000)] + []),
+        ("Large integer array of positives", schema_int_array(), list(range(1000000))),
+        
+        ("Empty float array", schema_float_array(), []),
+        ("Single float array", schema_float_array(), [1]),
+        ("Large float array with negatives", schema_float_array(), list(range(10000)) + [-1 * i for i in range(10000)]),
+        ("Very large float array", schema_float_array(), list(range(1000000))),
+        #
+        ("String array with increasing size strings", schema_array(schema_string()), ["x" * i for i in range(5000)]),
+        ("String array with repeated elements (small)", schema_array(schema_string()), ["as44" for _ in range(10000)]),
+        ("String array with repeated elements (large)", schema_array(schema_string()), ["as44" for _ in range(100000)]),
+        #
+        ("Tuple with bool and int", schema_tuple(schema_bool(), schema_int()), (False, 42069)),
+        ("Map with bool and int keys", schema_map({"a": schema_bool(), "b": schema_int()}), {"a": True, "b": 42}),
+        #
+        ("Complex nested structure", big_schema, big_data)
     ]
 
-    for (py_schema, data) in pairs:
-    
-        schema = python_schema_to_c(py_schema)
-    
-        # Convert Python data to ParsedData
-        parsed_data = python_to_parsed_data(data, schema)
-    
-        # Pack the data
-        packed_data = pack_data(parsed_data, schema)
-    
-        # Unpack the data
-        unpacked_data = unpack_data(packed_data, schema)
-    
-        # Convert ParsedData back to Python
-        result = parsed_data_to_python(unpacked_data)
-    
-        if(data != result):
-            print("Circle failure:")
-            print(f"Input:  {data}")
-            print(f"Output: {result}")
+    max_width = max(len(desc) for (desc, _, _) in test_cases) + 2
+
+    for description, py_schema, data in test_cases:
+        start_time = time.time()
+
+        try:
+            # Convert Python schema to C
+            schema = python_schema_to_c(py_schema)
+
+            # Convert Python data to ParsedData
+            parsed_data = python_to_parsed_data(data, schema)
+
+            # Pack the data
+            packed_data = pack_data(parsed_data, schema)
+
+            # Unpack the data
+            unpacked_data = unpack_data(packed_data, schema)
+
+            # Convert ParsedData back to Python
+            result = parsed_data_to_python(unpacked_data)
+
+        except Exception as e:
+            print(f"{description:<{max_width}} {Fore.RED}fail{Style.RESET_ALL}")
+            print(f"Error: {e}")
+
+if __name__ == "__main__":
+    run_tests()
+
