@@ -1,17 +1,9 @@
 #!/usr/bin/env python
 
 import ctypes
+import sys
 from enum import IntEnum
 from typing import Union, List, Dict, Tuple
-
-import time
-from colorama import Fore, Style, init
-
-# Initialize colorama
-init(autoreset=True)
-
-def hex(xs: bytes) -> str:
-    return ' '.join('{:02x}'.format(x) for x in xs)
 
 class MorlocSerialType(IntEnum):
     MORLOC_NIL = 0
@@ -53,71 +45,141 @@ ParsedData._fields_ = [
     ("data", _Data)
 ]
 
-def python_to_parsed_data(data, key = None) -> ParsedData:
+
+def parse_schema_size(schema: str, index: int) -> tuple[int, int]:
+    c = schema[index]
+    if '0' <= c <= '9':
+        size = ord(c) - ord('0')
+    elif 'a' <= c <= 'z':
+        size = ord(c) - ord('a') + 10
+    elif 'A' <= c <= 'Z':
+        size = ord(c) - ord('A') + 36
+    elif c == '+':
+        size = 62
+    elif c == '/':
+        size = 63
+    else:
+        raise ValueError(f"Invalid character for size: {c}")
+    return size, index + 1
+
+def parse_schema_key(schema: str, index: int) -> tuple[str, int]:
+    key_size, index = parse_schema_size(schema, index)
+    key = schema[index:index + key_size]
+    return key, index + key_size
+
+def parse_schema_r(schema: str, index: int = 0) -> tuple[list, int]:
+    if index >= len(schema):
+        return [], index
+
+    c = schema[index]
+    index += 1
+
+    if c == 'a':  # SCHEMA_ARRAY
+        sub_schema, index = parse_schema_r(schema, index)
+        return ['a', sub_schema], index
+    elif c == 't':  # SCHEMA_TUPLE
+        size, index = parse_schema_size(schema, index)
+        tuple_schema = ['t', []]
+        for _ in range(size):
+            sub_schema, index = parse_schema_r(schema, index)
+            tuple_schema[1].append(sub_schema)
+        return tuple_schema, index
+    elif c == 'm':  # SCHEMA_MAP
+        size, index = parse_schema_size(schema, index)
+        map_schema = ['m', []]
+        for _ in range(size):
+            key, index = parse_schema_key(schema, index)
+            value_schema, index = parse_schema_r(schema, index)
+            map_schema[1].append([key, value_schema])
+        return map_schema, index
+    elif c == 'z':  # SCHEMA_NIL
+        return ([c, []], index)
+    elif c == 'b':  # SCHEMA_BOOL
+        return [c, []], index
+    elif c in ['i', 'u']:  # SCHEMA_SINT or SCHEMA_UINT
+        _, index = parse_schema_size(schema, index)
+        return [c, []], index
+    elif c == 'f':  # SCHEMA_FLOAT
+        _, index = parse_schema_size(schema, index)
+        return ['f', []], index
+    elif c == 's':  # SCHEMA_STRING
+        return ['s', []], index
+    elif c == 'r':  # SCHEMA_BINARY
+        return ['r', []], index
+    else:
+        raise ValueError(f"Unrecognized schema type '{c}'")
+
+def parse_schema(schema: str) -> list:
+    result, _ = parse_schema_r(schema)
+    return result
+
+def python_to_parsed_data_r(data, schema, key = None) -> ParsedData:
     pd = ParsedData()
 
     if isinstance(key, str):
         pd.key = key.encode('utf-8')
 
-    if data is None:
+    if schema[0] == "z":
         pd.size = 0
         pd.data.nil_val = b'\x00'
-    elif isinstance(data, bool):
+    elif schema[0] == "b":
         pd.size = 0
-        pd.data.bool_val = data
-    elif isinstance(data, int):
+        pd.data.bool_val = bool(data)
+    elif schema[0] == "i":
         pd.size = 0
-        pd.data.int_val = data
-    elif isinstance(data, float):
+        pd.data.int_val = int(data)
+    elif schema[0] == "f":
         pd.size = 0
-        pd.data.double_val = data
-    elif isinstance(data, str):
+        pd.data.double_val = float(data)
+    elif schema[0] == "s":
         encoded = data.encode('utf-8')
         pd.size = len(encoded)
         buffer = ctypes.create_string_buffer(encoded)
         pd.data.char_arr = ctypes.cast(buffer, ctypes.POINTER(ctypes.c_char))
-    elif isinstance(data, bytes):
+    elif schema[0] == "r":
         pd.size = len(data)
         buffer = ctypes.create_string_buffer(data)
         pd.data.char_arr = ctypes.cast(buffer, ctypes.POINTER(ctypes.c_char))
-    elif isinstance(data, list):
-        if(len(data) > 0):
-            if isinstance(data[0], bool):
-                pd.size = len(data)
-                arr = (ctypes.c_bool * pd.size)(*data)
-                pd.data.bool_arr = arr
-            elif isinstance(data[0], int):
-                pd.size = len(data)
-                arr = (ctypes.c_int * pd.size)(*data)
-                pd.data.int_arr = arr
-            elif isinstance(data[0], float):
-                pd.size = len(data)
-                arr = (ctypes.c_double * pd.size)(*data)
-                pd.data.float_arr = arr
-            else:
-                pd.size = len(data)
-                arr = (ParsedDataPtr * pd.size)()
-                for i, item in enumerate(data):
-                    arr[i] = ctypes.pointer(python_to_parsed_data(item))
-                pd.data.obj_arr = arr
+    elif schema[0] == "a":
+        array_schema = schema[1][0]
+        if array_schema[0] == "b":
+             pd.size = len(data)
+             arr = (ctypes.c_bool * pd.size)(*data)
+             pd.data.bool_arr = arr
+        elif array_schema[0] == "i":
+             pd.size = len(data)
+             arr = (ctypes.c_int * pd.size)(*data)
+             pd.data.int_arr = arr
+        elif array_schema[0] == "f":
+             pd.size = len(data)
+             arr = (ctypes.c_double * pd.size)(*data)
+             pd.data.float_arr = arr
         else:
-            # handle empty list
-            pd.size = len(data)
-            arr = (ParsedDataPtr * pd.size)()
-            pd.data.obj_arr = arr
-    elif isinstance(data, dict):
-        pd.size = len(data)
+             pd.size = len(data)
+             arr = (ParsedDataPtr * pd.size)()
+             for i, item in enumerate(data):
+                 arr[i] = ctypes.pointer(python_to_parsed_data_r(item, array_schema))
+             pd.data.obj_arr = arr
+    elif schema[0] == "t":
+        tuple_schemata = schema[1]
+        pd.size = len(tuple_schemata)
         arr = (ParsedDataPtr * pd.size)()
-        for (i, (k, v)) in enumerate(data.items()):
-            arr[i] = ctypes.pointer(python_to_parsed_data(v, key=k))
+        for i, (item, element_schema) in enumerate(zip(data, tuple_schemata)):
+            arr[i] = ctypes.pointer(python_to_parsed_data_r(item, element_schema))
         pd.data.obj_arr = arr
-    elif isinstance(data, tuple):
-        pd.size = len(data)
+    elif schema[0] == "m":
+        kwargs_schemata = schema[1]
+        pd.size = len(kwargs_schemata)
         arr = (ParsedDataPtr * pd.size)()
-        for i, item in enumerate(data):
-            arr[i] = ctypes.pointer(python_to_parsed_data(item))
+        for (i, (k, s)) in enumerate(kwargs_schemata):
+            arr[i] = ctypes.pointer(python_to_parsed_data_r(data[k], s, key=k))
         pd.data.obj_arr = arr
+    else:
+        print(f"Bad schema: {str(schema)}", file=sys.stderr)
     return pd
+
+def python_to_parsed_data(data, schema: str) -> ParsedData:
+    return python_to_parsed_data_r(data, parse_schema(schema), key = None)
 
 def parsed_data_to_python(pd: ParsedData) -> Union[None, bool, int, float, str, bytes, List, Dict, Tuple]:
     if pd.type == MorlocSerialType.MORLOC_NIL:
@@ -149,9 +211,6 @@ def parsed_data_to_python(pd: ParsedData) -> Union[None, bool, int, float, str, 
         return bytes(pd.data.char_arr[:pd.size])
     else:
         raise ValueError(f"Unknown ParsedData type: {pd.type}")
-
-
-
 
 
 # Load the shared library
@@ -248,67 +307,92 @@ def copy_parsed_data(data: ParsedData) -> ParsedData:
     return new_data
 
 
-def generate_test_integers():
-    # Maximum and minimum 32-bit signed integers
-    max_int = 2**31 - 1
-    min_int = -2**31
 
-    # Generate 1024 evenly spaced values
-    step = (max_int - min_int) // 1023
-    main_range = list(range(max_int, min_int, -step))
+def pack(py_data, schema: str) -> bytes:
+    # Convert Python data to ParsedData
+    parsed_data = python_to_parsed_data(py_data, schema)
 
-    # Generate powers of 2, their +/- 1 values, and sums of powers of 2
-    powers_of_2 = []
-    sums_of_powers = []
-    current_sum = 0
-    for i in range(31):  # 31 because 2^31 is already the max signed 32-bit int
-        base = 2**i
-        current_sum += base
-    
-        # Individual powers of 2 and their +/- 1 values
-        powers_of_2.extend([base - 1, base, base + 1, -(base - 1), -base, -(base + 1)])
-    
-        # Sums of powers of 2 and their +/- 1 values
-        sums_of_powers.extend([current_sum - 1, current_sum, current_sum + 1,
-                               -(current_sum - 1), -current_sum, -(current_sum + 1)])
-    
-        # Add intermediate sums (e.g., 2^3 + 2^2)
-        if i > 0:
-            intermediate_sum = base + 2**(i-1)
-            sums_of_powers.extend([intermediate_sum - 1, intermediate_sum, intermediate_sum + 1,
-                                   -(intermediate_sum - 1), -intermediate_sum, -(intermediate_sum + 1)])
-
-    # Combine all values, remove duplicates, and sort
-    all_values = sorted(set(main_range + powers_of_2 + sums_of_powers), reverse=True)
-
-    # lazy solution to the edge cases generated above that overflow at the 32bits
-    return [x for x in all_values if x > min_int and x < max_int]
+    # Translate to MessagePack
+    return pack_data(parsed_data, schema)
 
 
-def schema_size(number: int) -> str:
-    """
-    Convert a number between 0 and 63 to its corresponding character.
-    
-    :param number: An integer between 0 and 63
-    :return: The corresponding character
-    """
-    if not (0 <= number <= 63):
-        raise ValueError("Number must be between 0 and 63")
 
-    if 0 <= number <= 9:
-        return chr(ord('0') + number)
-    elif 10 <= number <= 35:
-        return chr(ord('a') + (number - 10))
-    elif 36 <= number <= 61:
-        return chr(ord('A') + (number - 36))
-    elif number == 62:
-        return '+'
-    elif number == 63:
-        return '/'
-    else:
-        raise ValueError("Invalid number")  # This should never happen due to the initial check
+def unpack(msgpack_data, schema: str):
+    # Unpack the data
+    unpacked_data = unpack_data(msgpack_data, schema)
 
-def run_tests():
+    # Convert ParsedData back to Python
+    return parsed_data_to_python(unpacked_data)
+
+
+
+if __name__ == "__main__":
+    import time
+    from colorama import Fore, Style, init
+
+    # Initialize colorama
+    init(autoreset=True)
+
+    def generate_test_integers():
+        # Maximum and minimum 32-bit signed integers
+        max_int = 2**31 - 1
+        min_int = -2**31
+
+        # Generate 1024 evenly spaced values
+        step = (max_int - min_int) // 1023
+        main_range = list(range(max_int, min_int, -step))
+
+        # Generate powers of 2, their +/- 1 values, and sums of powers of 2
+        powers_of_2 = []
+        sums_of_powers = []
+        current_sum = 0
+        for i in range(31):  # 31 because 2^31 is already the max signed 32-bit int
+            base = 2**i
+            current_sum += base
+        
+            # Individual powers of 2 and their +/- 1 values
+            powers_of_2.extend([base - 1, base, base + 1, -(base - 1), -base, -(base + 1)])
+        
+            # Sums of powers of 2 and their +/- 1 values
+            sums_of_powers.extend([current_sum - 1, current_sum, current_sum + 1,
+                                   -(current_sum - 1), -current_sum, -(current_sum + 1)])
+        
+            # Add intermediate sums (e.g., 2^3 + 2^2)
+            if i > 0:
+                intermediate_sum = base + 2**(i-1)
+                sums_of_powers.extend([intermediate_sum - 1, intermediate_sum, intermediate_sum + 1,
+                                       -(intermediate_sum - 1), -intermediate_sum, -(intermediate_sum + 1)])
+
+        # Combine all values, remove duplicates, and sort
+        all_values = sorted(set(main_range + powers_of_2 + sums_of_powers), reverse=True)
+
+        # lazy solution to the edge cases generated above that overflow at the 32bits
+        return [x for x in all_values if x > min_int and x < max_int]
+
+    def schema_size(number: int) -> str:
+        """
+        Convert a number between 0 and 63 to its corresponding character.
+        
+        :param number: An integer between 0 and 63
+        :return: The corresponding character
+        """
+        if not (0 <= number <= 63):
+            raise ValueError("Number must be between 0 and 63")
+
+        if 0 <= number <= 9:
+            return chr(ord('0') + number)
+        elif 10 <= number <= 35:
+            return chr(ord('a') + (number - 10))
+        elif 36 <= number <= 61:
+            return chr(ord('A') + (number - 36))
+        elif number == 62:
+            return '+'
+        elif number == 63:
+            return '/'
+        else:
+            raise ValueError("Invalid number")  # This should never happen due to the initial check
+
+
     big_schema_dict = {
         "null_value": "z",
         "boolean": "b",
@@ -343,6 +427,7 @@ def run_tests():
         ("Negative integer", "i4", -1000000),
         ("Positive integer", "i4", 1000000),
         ("Positive float", "f8", 6.9420),
+        ("Positive float from int", "f8", 6),
         ("Negative float", "f8", -6.9420),
         ("Empty binary", "r", b''),
         ("Binary with prefix", "r", b'\x00susan'),
@@ -362,6 +447,7 @@ def run_tests():
         #
         ("Empty float array", "af8", []),
         ("Single float array", "af8", [float(1)]),
+        ("Single float array", "af8", [-3-2,-1,0,1,2,3]),
         ("Large float array with negatives", "af8", [float(x) for x in list(range(10000)) + [-1 * i for i in range(10000)]]),
         ("Very large float array", "af8", [float(x) for x in range(1000000)]),
         #
@@ -381,17 +467,9 @@ def run_tests():
         start_time = time.time()
 
         try:
-            # Convert Python data to ParsedData
-            parsed_data = python_to_parsed_data(data)
+            msgpack_data = pack(data, schema)
 
-            # Pack the data
-            packed_data = pack_data(parsed_data, schema)
-
-            # Unpack the data
-            unpacked_data = unpack_data(packed_data, schema)
-
-            # Convert ParsedData back to Python
-            result = parsed_data_to_python(unpacked_data)
+            result = unpack(msgpack_data, schema)
 
             end_time = time.time()
 
@@ -406,7 +484,3 @@ def run_tests():
         except Exception as e:
             print(f"{description:<{max_width}} {Fore.RED}fail{Style.RESET_ALL}")
             print(f"Error: {e}")
-
-if __name__ == "__main__":
-    run_tests()
-
