@@ -40,6 +40,15 @@ Anything* r_to_anything(SEXP obj, const Schema* schema) {
       }
       break;
     case MORLOC_ARRAY:
+      {
+        const Schema* element_schema = schema->parameters[0];
+        result->size = LENGTH(obj);
+        result->data.obj_arr = (Anything**)malloc(result->size * sizeof(Anything*));
+        for (size_t i = 0; i < result->size; i++) {
+          result->data.obj_arr[i] = r_to_anything(VECTOR_ELT(obj, i), element_schema);
+        }
+      }
+      break;
     case MORLOC_TUPLE:
       {
         result->size = LENGTH(obj);
@@ -121,6 +130,15 @@ SEXP anything_to_r(const Anything* data, const Schema* schema) {
       }
       break;
     case MORLOC_ARRAY:
+      {
+        result = PROTECT(allocVector(VECSXP, data->size));
+        const Schema* element_schema = schema->parameters[0];
+        for (size_t i = 0; i < data->size; i++) {
+          SET_VECTOR_ELT(result, i, anything_to_r(data->data.obj_arr[i], element_schema));
+        }
+        UNPROTECT(1);
+      }
+      break;
     case MORLOC_TUPLE:
       {
         result = PROTECT(allocVector(VECSXP, data->size));

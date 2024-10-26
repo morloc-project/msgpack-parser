@@ -38,9 +38,10 @@ test_cases <- list(
     list("Test raw binary", "r", as.raw(c(0x01, 0x02, 0x03))),
     list("Test array of integers", "ai4", c(1L,2L,3L,4L,5L)),
     list("Test array of floats", "af8", c(1.0, 2.0, 3.0)),
-    list("Test array of booleans", "ab", c(TRUE,FALSE,FALSE))
-    # list("Test array of arrays of booleans", "aab", list(c(TRUE,FALSE), c(FALSE,FALSE,TRUE)))
-    # list("Test tuple of int and array of floats", "ti4af8", list(42L, c(1.1, 2.2, 3.3)))
+    list("Test array of booleans", "ab", c(TRUE,FALSE,FALSE)),
+    list("Test array of arrays of booleans", "aab", list(c(TRUE,FALSE), c(FALSE,FALSE,TRUE))),
+    list("Test tuple of int and array of floats", "t2i4af8", list(42L, c(1.1, 2.2, 3.3))),
+    list("big numeric vector", "af8", runif(1000000))
 )
 
 for (case in test_cases) {
