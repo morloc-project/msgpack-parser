@@ -4,8 +4,11 @@ cpp:
 test:
 	bash test.sh
 
-lib:
+pylib:
 	gcc -shared -o mlcmpack.so -fPIC mlcmpack.[ch] mpack.[ch]
+
+rlib:
+	R CMD SHLIB -o mlcmpack_r.so mlcmpack_r.c mlcmpack.[ch] mpack.[ch]
 
 clean:
 	rm -f a.out *.gch *.so

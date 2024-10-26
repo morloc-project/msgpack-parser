@@ -94,7 +94,10 @@ void print_schema(const Schema* schema);
 
 // Main pack function for creating morloc-encoded MessagePack data
 int pack(const Anything* data, const char* schema_str, char** out_data, size_t* out_size);
-int unpack(const char* data, size_t size, const char* schema_str, Anything** out_data);
+int pack_with_schema(const Anything* data, const Schema* schema, char** out_data, size_t* out_size);
+
+int unpack(const char* data, size_t data_size, const char* schema_str, Anything** out_data);
+int unpack_with_schema(const char* data, size_t data_size, const Schema* schema, Anything** out_data);
 
 
 // create atomic values

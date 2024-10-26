@@ -665,6 +665,13 @@ int pack_with_schema(const Anything* data, const Schema* schema, char** packet, 
     return pack_result;
 }
 
+int pack(const Anything* data, const char* schema_str, char** out_data, size_t* out_size) {
+    Schema* schema = parse_schema(&schema_str);
+    return pack_with_schema(data, schema, out_data, out_size);
+}
+
+
+
 void write_token(mpack_token_t token){
     switch(token.type){
         case MPACK_TOKEN_NIL:
@@ -674,33 +681,33 @@ void write_token(mpack_token_t token){
             fprintf(stderr, "BOOLEAN");
             break;
         case MPACK_TOKEN_SINT:
-            fprintf(stderr, "SINT(%zu)", token.length);
+            fprintf(stderr, "SINT(%d)", token.length);
             break;
         case MPACK_TOKEN_UINT:
-            fprintf(stderr, "UINT(%zu)", token.length);
+            fprintf(stderr, "UINT(%d)", token.length);
             break;
         case MPACK_TOKEN_FLOAT:
             fprintf(stderr, "FLOAT");
             break;
         case MPACK_TOKEN_CHUNK:
-            fprintf(stderr, "CHUNK(%zu): ", token.length);
+            fprintf(stderr, "CHUNK(%d): ", token.length);
             if(token.data.chunk_ptr)
                 print_hex(token.data.chunk_ptr, token.length);
             break;
         case MPACK_TOKEN_ARRAY:
-            fprintf(stderr, "ARRAY(%zu)", token.length);
+            fprintf(stderr, "ARRAY(%d)", token.length);
             break;
         case MPACK_TOKEN_MAP:
-            fprintf(stderr, "MAP(%zu)", token.length);
+            fprintf(stderr, "MAP(%d)", token.length);
             break;
         case MPACK_TOKEN_BIN:
-            fprintf(stderr, "BIN(%zu)", token.length);
+            fprintf(stderr, "BIN(%d)", token.length);
             break;
         case MPACK_TOKEN_STR:
-            fprintf(stderr, "STR(%zu)", token.length);
+            fprintf(stderr, "STR(%d)", token.length);
             break;
         case MPACK_TOKEN_EXT:
-            fprintf(stderr, "EXT(%zu)", token.length);
+            fprintf(stderr, "EXT(%d)", token.length);
             break;
       default:
         break;
@@ -947,14 +954,6 @@ Anything* parse_obj(const Schema* schema, mpack_tokbuf_t* tokbuf, const char** b
     return NULL;
 }
 
-Anything* unpack_with_schema(const char** buf_ptr, size_t* buf_remaining, const Schema* schema) {
-    mpack_tokbuf_t tokbuf;
-    mpack_tokbuf_init(&tokbuf);
-    mpack_token_t token;
-    return(parse_obj(schema, &tokbuf, buf_ptr, buf_remaining, &token));
-}
-
-
 void write_tokens(const char** buf_ptr, size_t* buf_remaining){
     mpack_tokbuf_t tokbuf;
     mpack_tokbuf_init(&tokbuf);
@@ -970,20 +969,24 @@ void write_tokens(const char** buf_ptr, size_t* buf_remaining){
 }
 
 
-int pack(const Anything* data, const char* schema_str, char** out_data, size_t* out_size) {
-    Schema* schema = parse_schema(&schema_str);
-    return pack_with_schema(data, schema, out_data, out_size);
-}
-
-int unpack(const char* data, size_t size, const char* schema_str, Anything** out_data) {
-    const Schema* schema = parse_schema(&schema_str);
+int unpack_with_schema(const char* data, size_t data_size, const Schema* schema, Anything** out_data) {
     // Use the existing unpack_with_schema function, but adapt it to the new prototype
     const char* buf = data;
-    size_t buf_remaining = size;
-    *out_data = unpack_with_schema(&buf, &buf_remaining, schema);
+    size_t buf_remaining = data_size;
+
+    mpack_tokbuf_t tokbuf;
+    mpack_tokbuf_init(&tokbuf);
+    mpack_token_t token;
+
+    *out_data = parse_obj(schema, &tokbuf, &data, &buf_remaining, &token);
 
     // Return 0 for success, or an error code if unpack_with_schema fails
     return (*out_data != NULL) ? 0 : -1;
+}
+
+int unpack(const char* data, size_t data_size, const char* schema_str, Anything** out_data) {
+    const Schema* schema = parse_schema(&schema_str);
+    return unpack_with_schema(data, data_size, schema, out_data);
 }
 
 
