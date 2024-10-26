@@ -939,8 +939,11 @@ MPACK_API mpack_token_t mpack_pack_int32(int v){
   mpack_token_t rv;
   rv.data.value.lo = v;
   rv.data.value.hi = 0;
-  rv.type = (v >= 0) * MPACK_TOKEN_UINT +
-            (v < 0) * MPACK_TOKEN_SINT;
+  if (v >= 0){
+    rv.type = MPACK_TOKEN_UINT;
+  } else {
+    rv.type = MPACK_TOKEN_SINT;
+  }
   return rv;
 }
 

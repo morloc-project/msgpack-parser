@@ -20,10 +20,10 @@ class MorlocSerialType(IntEnum):
     MORLOC_FLOAT_ARRAY = 11
     MORLOC_EXT = 12
 
-class ParsedData(ctypes.Structure):
+class Anything(ctypes.Structure):
     pass
 
-ParsedDataPtr = ctypes.POINTER(ParsedData)
+AnythingPtr = ctypes.POINTER(Anything)
 
 class _Data(ctypes.Union):
     _fields_ = [
@@ -35,10 +35,10 @@ class _Data(ctypes.Union):
         ("bool_arr", ctypes.POINTER(ctypes.c_bool)),
         ("int_arr", ctypes.POINTER(ctypes.c_int)),
         ("float_arr", ctypes.POINTER(ctypes.c_double)),
-        ("obj_arr", ctypes.POINTER(ParsedDataPtr))
+        ("obj_arr", ctypes.POINTER(AnythingPtr))
     ]
 
-ParsedData._fields_ = [
+Anything._fields_ = [
     ("type", ctypes.c_int),
     ("size", ctypes.c_size_t),
     ("key", ctypes.c_char_p),
@@ -113,8 +113,8 @@ def parse_schema(schema: str) -> list:
     result, _ = parse_schema_r(schema)
     return result
 
-def python_to_parsed_data_r(data, schema, key = None) -> ParsedData:
-    pd = ParsedData()
+def python_to_parsed_data_r(data, schema, key = None) -> Anything:
+    pd = Anything()
 
     if isinstance(key, str):
         pd.key = key.encode('utf-8')
@@ -156,21 +156,21 @@ def python_to_parsed_data_r(data, schema, key = None) -> ParsedData:
              pd.data.float_arr = arr
         else:
              pd.size = len(data)
-             arr = (ParsedDataPtr * pd.size)()
+             arr = (AnythingPtr * pd.size)()
              for i, item in enumerate(data):
                  arr[i] = ctypes.pointer(python_to_parsed_data_r(item, array_schema))
              pd.data.obj_arr = arr
     elif schema[0] == "t":
         tuple_schemata = schema[1]
         pd.size = len(tuple_schemata)
-        arr = (ParsedDataPtr * pd.size)()
+        arr = (AnythingPtr * pd.size)()
         for i, (item, element_schema) in enumerate(zip(data, tuple_schemata)):
             arr[i] = ctypes.pointer(python_to_parsed_data_r(item, element_schema))
         pd.data.obj_arr = arr
     elif schema[0] == "m":
         kwargs_schemata = schema[1]
         pd.size = len(kwargs_schemata)
-        arr = (ParsedDataPtr * pd.size)()
+        arr = (AnythingPtr * pd.size)()
         for (i, (k, s)) in enumerate(kwargs_schemata):
             arr[i] = ctypes.pointer(python_to_parsed_data_r(data[k], s, key=k))
         pd.data.obj_arr = arr
@@ -178,10 +178,10 @@ def python_to_parsed_data_r(data, schema, key = None) -> ParsedData:
         print(f"Bad schema: {str(schema)}", file=sys.stderr)
     return pd
 
-def python_to_parsed_data(data, schema: str) -> ParsedData:
+def python_to_parsed_data(data, schema: str) -> Anything:
     return python_to_parsed_data_r(data, parse_schema(schema), key = None)
 
-def parsed_data_to_python(pd: ParsedData) -> Union[None, bool, int, float, str, bytes, List, Dict, Tuple]:
+def parsed_data_to_python(pd: Anything) -> Union[None, bool, int, float, str, bytes, List, Dict, Tuple]:
     if pd.type == MorlocSerialType.MORLOC_NIL:
         return None
     elif pd.type == MorlocSerialType.MORLOC_BOOL:
@@ -210,20 +210,20 @@ def parsed_data_to_python(pd: ParsedData) -> Union[None, bool, int, float, str, 
     elif pd.type == MorlocSerialType.MORLOC_EXT:
         return bytes(pd.data.char_arr[:pd.size])
     else:
-        raise ValueError(f"Unknown ParsedData type: {pd.type}")
+        raise ValueError(f"Unknown Anything type: {pd.type}")
 
 
 # Load the shared library
 lib = ctypes.CDLL('./mlcmpack.so')
 
 # Update the function signatures
-lib.pack.argtypes = [ctypes.POINTER(ParsedData), ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(ctypes.c_char)), ctypes.POINTER(ctypes.c_size_t)]
+lib.pack.argtypes = [ctypes.POINTER(Anything), ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(ctypes.c_char)), ctypes.POINTER(ctypes.c_size_t)]
 lib.pack.restype = ctypes.c_int
 
-lib.unpack.argtypes = [ctypes.POINTER(ctypes.c_char), ctypes.c_size_t, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(ParsedData))]
+lib.unpack.argtypes = [ctypes.POINTER(ctypes.c_char), ctypes.c_size_t, ctypes.c_char_p, ctypes.POINTER(ctypes.POINTER(Anything))]
 lib.unpack.restype = ctypes.c_int
 
-def pack_data(data: ParsedData, schema: str) -> bytes:
+def pack_data(data: Anything, schema: str) -> bytes:
     out_data = ctypes.POINTER(ctypes.c_char)()
     out_size = ctypes.c_size_t()
     
@@ -240,9 +240,9 @@ def pack_data(data: ParsedData, schema: str) -> bytes:
     return packed_data
 
 
-def unpack_data(packed_data: bytes, schema: str) -> ParsedData:
+def unpack_data(packed_data: bytes, schema: str) -> Anything:
     data_ptr = ctypes.cast(packed_data, ctypes.POINTER(ctypes.c_char))
-    out_data = ctypes.POINTER(ParsedData)()
+    out_data = ctypes.POINTER(Anything)()
 
     # Convert Python string to bytes, then to c_char_p
     schema_bytes = schema.encode('utf-8')
@@ -252,14 +252,14 @@ def unpack_data(packed_data: bytes, schema: str) -> ParsedData:
     if result != 0:
         raise RuntimeError("Unpacking failed")
 
-    # Create a deep copy of the ParsedData
+    # Create a deep copy of the Anything
     parsed_data = copy_parsed_data(out_data.contents)
 
     return parsed_data
 
 
-def copy_parsed_data(data: ParsedData) -> ParsedData:
-    new_data = ParsedData()
+def copy_parsed_data(data: Anything) -> Anything:
+    new_data = Anything()
     new_data.type = data.type
     new_data.size = data.size
     new_data.key = ctypes.c_char_p(data.key) if data.key else None
@@ -283,7 +283,7 @@ def copy_parsed_data(data: ParsedData) -> ParsedData:
         ctypes.memmove(new_buffer, data.data.char_arr, data.size)
         new_data.data.char_arr = ctypes.cast(new_buffer, ctypes.POINTER(ctypes.c_char))
     elif data.type in [MorlocSerialType.MORLOC_ARRAY, MorlocSerialType.MORLOC_MAP, MorlocSerialType.MORLOC_TUPLE]:
-        new_arr = (ParsedDataPtr * data.size)()
+        new_arr = (AnythingPtr * data.size)()
         for i in range(data.size):
             new_arr[i] = ctypes.pointer(copy_parsed_data(data.data.obj_arr[i].contents))
         new_data.data.obj_arr = new_arr
@@ -302,14 +302,14 @@ def copy_parsed_data(data: ParsedData) -> ParsedData:
     elif data.type == MorlocSerialType.MORLOC_EXT:
         new_data.data.char_arr = ctypes.c_char_p(ctypes.cast(data.data.char_arr, ctypes.c_char_p).value)
     else:
-        raise ValueError(f"Unknown ParsedData type: {data.type}")
+        raise ValueError(f"Unknown Anything type: {data.type}")
 
     return new_data
 
 
 
 def pack(py_data, schema: str) -> bytes:
-    # Convert Python data to ParsedData
+    # Convert Python data to Anything
     parsed_data = python_to_parsed_data(py_data, schema)
 
     # Translate to MessagePack
@@ -321,7 +321,7 @@ def unpack(msgpack_data, schema: str):
     # Unpack the data
     unpacked_data = unpack_data(msgpack_data, schema)
 
-    # Convert ParsedData back to Python
+    # Convert Anything back to Python
     return parsed_data_to_python(unpacked_data)
 
 

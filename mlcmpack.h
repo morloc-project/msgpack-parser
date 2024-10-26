@@ -13,7 +13,7 @@
 
 // Forward declarations
 struct Schema;
-struct ParsedData;
+struct Anything;
 
 typedef enum {
   MORLOC_NIL           =  0,
@@ -65,7 +65,7 @@ typedef struct Schema {
 
 // A data structure that stores anything representable by MessagePack
 // The morloc pools will need to transform their data to/from this form
-typedef struct ParsedData {
+typedef struct Anything {
     morloc_serial_type type;
     size_t size; // 0 for primitives, array length for containers
     char* key; // NULL terminated string, used for names of elements in maps
@@ -78,47 +78,49 @@ typedef struct ParsedData {
         bool* bool_arr;
         int* int_arr;
         double* float_arr;
-        struct ParsedData** obj_arr; // general arrays, tuples, and maps
+        struct Anything** obj_arr; // general arrays, tuples, and maps
     } data;
-} ParsedData;
+} Anything;
 
 // Prototypes
 
-void free_parsed_data(ParsedData* data);
+void free_parsed_data(Anything* data);
+void free_schema(Schema* schema);
 
-void print_parsed_data(const ParsedData* data, int indent);
+Schema* parse_schema(const char** schema_ptr);
 
-Schema* read_schema_size(char** schema_ptr);
+void print_parsed_data(const Anything* data);
+void print_schema(const Schema* schema);
 
 // Main pack function for creating morloc-encoded MessagePack data
-int pack(const ParsedData* data, const char* schema_str, char** out_data, size_t* out_size);
-int unpack(const char* data, size_t size, const char* schema_str, ParsedData** out_data);
+int pack(const Anything* data, const char* schema_str, char** out_data, size_t* out_size);
+int unpack(const char* data, size_t size, const char* schema_str, Anything** out_data);
 
 
 // create atomic values
-ParsedData* nil_data();
-ParsedData* bool_data(bool value);
-ParsedData* int_data(int value);
-ParsedData* float_data(double value);
+Anything* nil_data();
+Anything* bool_data(bool value);
+Anything* int_data(int value);
+Anything* float_data(double value);
 // strings and binary
-ParsedData* string_data(const char* value, size_t size);
-ParsedData* binary_data(const char* value, size_t size);
-ParsedData* string_data_(size_t size);
-ParsedData* binary_data_(size_t size);
+Anything* string_data(const char* value, size_t size);
+Anything* binary_data(const char* value, size_t size);
+Anything* string_data_(size_t size);
+Anything* binary_data_(size_t size);
 // unboxed arrays
-ParsedData* array_bool_data(const bool* values, size_t size);
-ParsedData* array_int_data(const int* values, size_t size);
-ParsedData* array_float_data(const double* values, size_t size);
+Anything* array_bool_data(const bool* values, size_t size);
+Anything* array_int_data(const int* values, size_t size);
+Anything* array_float_data(const double* values, size_t size);
 // unboxed uninitialized arrays
-ParsedData* array_bool_data_(size_t size);
-ParsedData* array_int_data_(size_t size);
-ParsedData* array_float_data_(size_t size);
+Anything* array_bool_data_(size_t size);
+Anything* array_int_data_(size_t size);
+Anything* array_float_data_(size_t size);
 // containers, set elements individually
-ParsedData* array_data_(size_t size);
-ParsedData* tuple_data_(size_t size);
-ParsedData* map_data_(size_t size);
+Anything* array_data_(size_t size);
+Anything* tuple_data_(size_t size);
+Anything* map_data_(size_t size);
 // helper for setting map elements
-void set_map_element(ParsedData* map, size_t pos, const char* key, ParsedData* value);
+void set_map_element(Anything* map, size_t pos, const char* key, Anything* value);
 
 void print_hex(const char* data, size_t size);
 void write_tokens(const char** buf_ptr, size_t* buf_remaining);

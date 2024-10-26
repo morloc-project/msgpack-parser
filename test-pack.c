@@ -5,7 +5,7 @@
 #define RUN_TEST(name) do { printf("Running test_%s ... ", #name); test_##name(); printf("\033[0;32mpassed\033[0m\n", #name); } while(0)
 
 TEST(pack_nil) {
-    ParsedData* data = nil_data();
+    Anything* data = nil_data();
     char* packet = NULL;
     size_t packet_size = 0;
     int result = pack(data, "z", &packet, &packet_size);
@@ -17,8 +17,8 @@ TEST(pack_nil) {
 }
 
 TEST(pack_bool) {
-    ParsedData* data_true = bool_data(true);
-    ParsedData* data_false = bool_data(false);
+    Anything* data_true = bool_data(true);
+    Anything* data_false = bool_data(false);
     char* packet = NULL;
     size_t packet_size = 0;
 
@@ -39,8 +39,8 @@ TEST(pack_bool) {
 }
 
 TEST(pack_sint) {
-    ParsedData* data_positive = int_data(42);
-    ParsedData* data_negative = int_data(-42);
+    Anything* data_positive = int_data(42);
+    Anything* data_negative = int_data(-42);
     char* packet = NULL;
     size_t packet_size = 0;
 
@@ -61,7 +61,7 @@ TEST(pack_sint) {
 }
 
 TEST(pack_uint) {
-    ParsedData* data = int_data(300);
+    Anything* data = int_data(300);
     char* packet = NULL;
     size_t packet_size = 0;
 
@@ -75,7 +75,7 @@ TEST(pack_uint) {
 }
 
 TEST(pack_float) {
-    ParsedData* data = float_data(3.14);
+    Anything* data = float_data(3.14);
     char* packet = NULL;
     size_t packet_size = 0;
 
@@ -90,7 +90,7 @@ TEST(pack_float) {
 }
 
 TEST(pack_string) {
-    ParsedData* data = string_data("hello", 5);
+    Anything* data = string_data("hello", 5);
     char* packet = NULL;
     size_t packet_size = 0;
 
@@ -106,7 +106,7 @@ TEST(pack_string) {
 
 TEST(pack_binary) {
     const char x[] = {0x01, 0x02, 0x03};
-    ParsedData* data = binary_data(x, 3);
+    Anything* data = binary_data(x, 3);
     char* packet = NULL;
     size_t packet_size = 0;
 
@@ -122,7 +122,7 @@ TEST(pack_binary) {
 
 TEST(pack_array_bool) {
     bool values[] = {true, false, true};
-    ParsedData* data = array_bool_data(values, 3);
+    Anything* data = array_bool_data(values, 3);
     char* packet = NULL;
     size_t packet_size = 0;
 
@@ -138,7 +138,7 @@ TEST(pack_array_bool) {
 
 TEST(pack_array_sint) {
     int values[] = {1, -2, 3};
-    ParsedData* data = array_int_data(values, 3);
+    Anything* data = array_int_data(values, 3);
     char* packet = NULL;
     size_t packet_size = 0;
 
@@ -154,7 +154,7 @@ TEST(pack_array_sint) {
 
 TEST(pack_array_uint) {
     unsigned int values[] = {1, 2, 300};
-    ParsedData* data = array_int_data(values, 3);
+    Anything* data = array_int_data(values, 3);
     char* packet = NULL;
     size_t packet_size = 0;
 
@@ -171,7 +171,7 @@ TEST(pack_array_uint) {
 
 TEST(pack_array_float) {
     double values[] = {1.1, 2.2, 3.3};
-    ParsedData* data = array_float_data(values, 3);
+    Anything* data = array_float_data(values, 3);
     char* packet = NULL;
     size_t packet_size = 0;
 
@@ -192,7 +192,7 @@ TEST(pack_array_float) {
 }
 
 TEST(pack_tuple) {
-    ParsedData* data = tuple_data_(3);
+    Anything* data = tuple_data_(3);
     data->data.obj_arr[0] = int_data(42);
     data->data.obj_arr[1] = float_data(3.14);
     data->data.obj_arr[2] = string_data("hello", 5);
@@ -216,7 +216,7 @@ TEST(pack_tuple) {
 }
 
 TEST(pack_map) {
-    ParsedData* data = map_data_(2);
+    Anything* data = map_data_(2);
     set_map_element(data, 0, "key1", int_data(42));
     set_map_element(data, 1, "key2", string_data("value", 5));
     char* packet = NULL;
@@ -238,7 +238,7 @@ TEST(pack_map) {
 }
 
 TEST(pack_empty_array) {
-    ParsedData* data = array_data_(0);
+    Anything* data = array_data_(0);
     char* packet = NULL;
     size_t packet_size = 0;
 
@@ -252,7 +252,7 @@ TEST(pack_empty_array) {
 }
 
 TEST(pack_empty_map) {
-    ParsedData* data = map_data_(0);
+    Anything* data = map_data_(0);
     char* packet = NULL;
     size_t packet_size = 0;
 

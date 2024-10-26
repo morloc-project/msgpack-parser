@@ -1,7 +1,5 @@
 #include "mlcmpack.h"
 
-void free_schema(Schema* schema);
-
 // utility ####
 
 void print_hex(const char* data, size_t size) {
@@ -15,7 +13,7 @@ void print_hex(const char* data, size_t size) {
 
 // Helper function to create a schema with parameters
 Schema* create_schema_with_params(morloc_serial_type type, int size, Schema** params, char** keys) {
-    Schema* schema = malloc(sizeof(Schema));
+    Schema* schema = (Schema*)malloc(sizeof(Schema));
     if (!schema) return NULL;
 
     schema->type = type;
@@ -70,7 +68,7 @@ Schema* float_array_schema() {
 
 Schema* tuple_schema_(size_t size) {
 
-    Schema** params = calloc(size, sizeof(Schema*));
+    Schema** params = (Schema**)calloc(size, sizeof(Schema*));
     if (!params) {
         return NULL;
     }
@@ -87,7 +85,7 @@ Schema* array_schema(Schema* array_type) {
       case MORLOC_FLOAT:
         return float_array_schema();
       default:
-        Schema** params = malloc(sizeof(Schema*));
+        Schema** params = (Schema**)malloc(sizeof(Schema*));
         if (!params) return NULL;
         
         params[0] = array_type;
@@ -97,8 +95,8 @@ Schema* array_schema(Schema* array_type) {
 }
 
 Schema* map_schema_(size_t size) {
-    Schema** params = calloc(size, sizeof(Schema*));
-    char** keys = calloc(size, sizeof(char*));
+    Schema** params = (Schema**)calloc(size, sizeof(Schema*));
+    char** keys = (char**)calloc(size, sizeof(char*));
 
     if (!params || !keys) {
         free(params);
@@ -136,9 +134,9 @@ void free_schema(Schema* schema) {
 
 
 
-// Helper function to create a ParsedData with allocated memory
-ParsedData* create_parsed_data(morloc_serial_type type, size_t size) {
-    ParsedData* data = (ParsedData*)malloc(sizeof(ParsedData));
+// Helper function to create a Anything with allocated memory
+Anything* create_parsed_data(morloc_serial_type type, size_t size) {
+    Anything* data = (Anything*)malloc(sizeof(Anything));
     if (!data) return NULL;
     data->type = type;
     data->size = size;
@@ -147,34 +145,34 @@ ParsedData* create_parsed_data(morloc_serial_type type, size_t size) {
 }
 
 // Helper functions for primitive types
-ParsedData* nil_data() {
-    ParsedData* data = create_parsed_data(MORLOC_NIL, 0);
+Anything* nil_data() {
+    Anything* data = create_parsed_data(MORLOC_NIL, 0);
     // I won't actually use this value, so I keep the msgpck value
     if (data) data->data.nil_val = 0xc0;
     return data;
 }
 
-ParsedData* bool_data(bool value) {
-    ParsedData* data = create_parsed_data(MORLOC_BOOL, 0);
+Anything* bool_data(bool value) {
+    Anything* data = create_parsed_data(MORLOC_BOOL, 0);
     if (data) data->data.bool_val = value;
     return data;
 }
 
-ParsedData* int_data(int value) {
-    ParsedData* data = create_parsed_data(MORLOC_INT, 0);
+Anything* int_data(int value) {
+    Anything* data = create_parsed_data(MORLOC_INT, 0);
     if (data) data->data.int_val = value;
     return data;
 }
 
-ParsedData* float_data(double value) {
-    ParsedData* data = create_parsed_data(MORLOC_FLOAT, 0);
+Anything* float_data(double value) {
+    Anything* data = create_parsed_data(MORLOC_FLOAT, 0);
     if (data) data->data.double_val = value;
     return data;
 }
 
 
-ParsedData* char_data_(size_t size, morloc_serial_type mtype) {
-    ParsedData* data = create_parsed_data(mtype, size);
+Anything* char_data_(size_t size, morloc_serial_type mtype) {
+    Anything* data = create_parsed_data(mtype, size);
     if (data) {
         data->data.char_arr = (char*)calloc(size, sizeof(char));
         if (!data->data.char_arr) {
@@ -185,24 +183,24 @@ ParsedData* char_data_(size_t size, morloc_serial_type mtype) {
     return data;
 }
 
-ParsedData* string_data_(size_t size) {
+Anything* string_data_(size_t size) {
     return char_data_(size, MORLOC_STRING);
 }
 
-ParsedData* binary_data_(size_t size) {
+Anything* binary_data_(size_t size) {
     return char_data_(size, MORLOC_BINARY);
 }
 
-ParsedData* ext_data_(size_t size, int ext_type) {
+Anything* ext_data_(size_t size, int ext_type) {
     // the ext_type is ignored since no support is currently offered
     return char_data_(size, MORLOC_EXT);
 }
 
 
-ParsedData* obj_array_data_(size_t size, morloc_serial_type mtype) {
-    ParsedData* data = create_parsed_data(mtype, size);
+Anything* obj_array_data_(size_t size, morloc_serial_type mtype) {
+    Anything* data = create_parsed_data(mtype, size);
     if (data) {
-        data->data.obj_arr = (ParsedData**)calloc(size, sizeof(ParsedData*));
+        data->data.obj_arr = (Anything**)calloc(size, sizeof(Anything*));
         if (!data->data.obj_arr) {
             free(data);
             return NULL;
@@ -212,20 +210,20 @@ ParsedData* obj_array_data_(size_t size, morloc_serial_type mtype) {
 }
 
 // Helper function for arrays
-ParsedData* array_data_(size_t size) {
+Anything* array_data_(size_t size) {
     return obj_array_data_(size, MORLOC_ARRAY);
 }
 
 // Helper function for tuples
-ParsedData* tuple_data_(size_t size) {
+Anything* tuple_data_(size_t size) {
     return obj_array_data_(size, MORLOC_TUPLE);
 }
 
 // Helper function for maps
-ParsedData* map_data_(size_t size) {
-    ParsedData* data = create_parsed_data(MORLOC_MAP, size);
+Anything* map_data_(size_t size) {
+    Anything* data = create_parsed_data(MORLOC_MAP, size);
     if (data) {
-        data->data.obj_arr = (ParsedData**)calloc(size, sizeof(ParsedData*));
+        data->data.obj_arr = (Anything**)calloc(size, sizeof(Anything*));
         if (!data->data.obj_arr) {
             free(data->data.obj_arr);
             free(data);
@@ -236,14 +234,14 @@ ParsedData* map_data_(size_t size) {
 }
 
 // Helper function to set a key-value pair in a map
-void set_map_element(ParsedData* map, size_t pos, const char* key, ParsedData* value) {
+void set_map_element(Anything* map, size_t pos, const char* key, Anything* value) {
     value->key = strdup(key);
     map->data.obj_arr[pos] = value;
 }
 
-ParsedData* array_bool_data_(size_t size) {
-    ParsedData* data = create_parsed_data(MORLOC_BOOL_ARRAY, size);
-    data->data.bool_arr = calloc(size, sizeof(bool));
+Anything* array_bool_data_(size_t size) {
+    Anything* data = create_parsed_data(MORLOC_BOOL_ARRAY, size);
+    data->data.bool_arr = (bool*)calloc(size, sizeof(bool));
     if (!data->data.bool_arr) {
         free(data);
         return NULL;
@@ -251,9 +249,9 @@ ParsedData* array_bool_data_(size_t size) {
     return data;
 }
 
-ParsedData* array_int_data_(size_t size) {
-    ParsedData* data = create_parsed_data(MORLOC_INT_ARRAY, size);
-    data->data.int_arr = malloc(size * sizeof(int));
+Anything* array_int_data_(size_t size) {
+    Anything* data = create_parsed_data(MORLOC_INT_ARRAY, size);
+    data->data.int_arr = (int*)malloc(size * sizeof(int));
     if (!data->data.int_arr) {
         free(data);
         return NULL;
@@ -262,9 +260,9 @@ ParsedData* array_int_data_(size_t size) {
     return data;
 }
 
-ParsedData* array_float_data_(size_t size) {
-    ParsedData* data = create_parsed_data(MORLOC_FLOAT_ARRAY, size);
-    data->data.float_arr = malloc(size * sizeof(double));
+Anything* array_float_data_(size_t size) {
+    Anything* data = create_parsed_data(MORLOC_FLOAT_ARRAY, size);
+    data->data.float_arr = (double*)malloc(size * sizeof(double));
     if (!data->data.float_arr) {
         free(data);
         return NULL;
@@ -274,8 +272,8 @@ ParsedData* array_float_data_(size_t size) {
 }
 
 // Helper function for array of booleans
-ParsedData* array_bool_data(const bool* values, size_t size) {
-    ParsedData* data = array_bool_data_(size);
+Anything* array_bool_data(const bool* values, size_t size) {
+    Anything* data = array_bool_data_(size);
     if (data) {
         memcpy(data->data.bool_arr, values, size * sizeof(bool));
     }
@@ -283,8 +281,8 @@ ParsedData* array_bool_data(const bool* values, size_t size) {
 }
 
 // Helper function for array of signed integers
-ParsedData* array_int_data(const int* values, size_t size) {
-    ParsedData* data = array_int_data_(size);
+Anything* array_int_data(const int* values, size_t size) {
+    Anything* data = array_int_data_(size);
     if (data) {
         memcpy(data->data.int_arr, values, size * sizeof(int));
     }
@@ -292,24 +290,24 @@ ParsedData* array_int_data(const int* values, size_t size) {
 }
 
 // Helper function for array of floats (doubles)
-ParsedData* array_float_data(const double* values, size_t size) {
-    ParsedData* data = array_float_data_(size);
+Anything* array_float_data(const double* values, size_t size) {
+    Anything* data = array_float_data_(size);
     if (data) {
         memcpy(data->data.float_arr, values, size * sizeof(double));
     }
     return data;
 }
 
-ParsedData* string_data(const char* value, size_t size) {
-    ParsedData* data = string_data_(size);
+Anything* string_data(const char* value, size_t size) {
+    Anything* data = string_data_(size);
     if (data) {
         memcpy(data->data.char_arr, value, size);
     }
     return data;
 }
 
-ParsedData* binary_data(const char* value, size_t size) {
-    ParsedData* data = binary_data_(size);
+Anything* binary_data(const char* value, size_t size) {
+    Anything* data = binary_data_(size);
     if (data) {
         memcpy(data->data.char_arr, value, size);
     }
@@ -317,7 +315,7 @@ ParsedData* binary_data(const char* value, size_t size) {
 }
 
 
-void free_parsed_data(ParsedData* data) {
+void free_parsed_data(Anything* data) {
     if (!data) return;
 
     switch (data->type) {
@@ -507,7 +505,7 @@ Schema* parse_schema(const char** schema_ptr){
 
 //  The main function for writing MessagePack
 int pack_data(
-  const ParsedData* data,    // input data structure
+  const Anything* data,    // input data structure
   const Schema* schema,      // input data schema
   char** packet,             // a pointer to the messagepack data
   char** packet_ptr,         // the current position in the buffer
@@ -554,14 +552,17 @@ int pack_data(
 
     dynamic_mpack_write(tokbuf, packet, packet_ptr, packet_remaining, &token, 0);
 
+    size_t array_length;
+    Schema* array_schema;
+
     switch(schema->type){
       case MORLOC_BINARY:
       case MORLOC_STRING:
         write_to_packet((void*)data->data.char_arr, packet, packet_ptr, packet_remaining, data->size);
         break;
       case MORLOC_ARRAY:
-        size_t array_length = data->size;
-        Schema* array_schema = schema->parameters[0];
+        array_length = data->size;
+        array_schema = schema->parameters[0];
         for (size_t i = 0; i < array_length; i++) {
             pack_data(
               data->data.obj_arr[i],
@@ -640,7 +641,7 @@ int pack_data(
 
 
 
-int pack_with_schema(const ParsedData* data, const Schema* schema, char** packet, size_t* packet_size) {
+int pack_with_schema(const Anything* data, const Schema* schema, char** packet, size_t* packet_size) {
     *packet_size = 0;
 
     *packet = (char*)malloc(BUFFER_SIZE * sizeof(char));
@@ -707,33 +708,33 @@ void write_token(mpack_token_t token){
 }
 
 // terminal parsers
-ParsedData* parse_binary(mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token);
-ParsedData* parse_bool(mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token);
-ParsedData* parse_bool_array(mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token);
-ParsedData* parse_float(mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token);
-ParsedData* parse_float_array(mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token);
-ParsedData* parse_int(mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token);
-ParsedData* parse_int_array(mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token);
-ParsedData* parse_nil(mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token);
-ParsedData* parse_string(mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token);
+Anything* parse_binary(mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token);
+Anything* parse_bool(mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token);
+Anything* parse_bool_array(mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token);
+Anything* parse_float(mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token);
+Anything* parse_float_array(mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token);
+Anything* parse_int(mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token);
+Anything* parse_int_array(mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token);
+Anything* parse_nil(mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token);
+Anything* parse_string(mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token);
 
 // nested parsers
-ParsedData* parse_array(const Schema* schema, mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token);
-ParsedData* parse_map(const Schema* schema, mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token);
-ParsedData* parse_tuple(const Schema* schema, mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token);
-ParsedData* parse_obj(const Schema* schema, mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token);
+Anything* parse_array(const Schema* schema, mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token);
+Anything* parse_map(const Schema* schema, mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token);
+Anything* parse_tuple(const Schema* schema, mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token);
+Anything* parse_obj(const Schema* schema, mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token);
 
-ParsedData* parse_nil(mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token){
+Anything* parse_nil(mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token){
     mpack_read(tokbuf, buf_ptr, buf_remaining, token);
     return nil_data();
 }
 
-ParsedData* parse_bool(mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token){
+Anything* parse_bool(mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token){
     mpack_read(tokbuf, buf_ptr, buf_remaining, token);
     return bool_data(mpack_unpack_boolean(*token));
 }
 
-ParsedData* parse_int(mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token){
+Anything* parse_int(mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token){
     /* fprintf(stderr, "Is data being decoded incorrectly?\n"); */
     /* print_hex(*buf_ptr, *buf_remaining);            */
     /* fprintf(stderr, "\n");                                   */
@@ -759,7 +760,7 @@ ParsedData* parse_int(mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_
     return int_data(result);
 }
 
-ParsedData* parse_float(mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token){
+Anything* parse_float(mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token){
     mpack_read(tokbuf, buf_ptr, buf_remaining, token);
     return float_data((double)mpack_unpack_float(*token));
 }
@@ -786,11 +787,11 @@ char* parse_key(mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remain
     return key;
 }
 
-ParsedData* parse_string(mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token){
+Anything* parse_string(mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token){
 
     mpack_read(tokbuf, buf_ptr, buf_remaining, token);
     size_t size = token->length;
-    ParsedData* result = string_data_(size);
+    Anything* result = string_data_(size);
     size_t str_idx = 0;
 
     while(size - str_idx > 0){
@@ -806,11 +807,11 @@ ParsedData* parse_string(mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* b
     return result;
 }
 
-ParsedData* parse_binary(mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token){
+Anything* parse_binary(mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token){
 
     mpack_read(tokbuf, buf_ptr, buf_remaining, token);
     size_t size = token->length;
-    ParsedData* result = binary_data_(size);
+    Anything* result = binary_data_(size);
     size_t str_idx = 0;
 
     while(size - str_idx > 0){
@@ -826,10 +827,10 @@ ParsedData* parse_binary(mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* b
     return result;
 }
 
-ParsedData* parse_bool_array(mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token){
+Anything* parse_bool_array(mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token){
     mpack_read(tokbuf, buf_ptr, buf_remaining, token);
     size_t size = token->length;
-    ParsedData* result = array_bool_data_(size);
+    Anything* result = array_bool_data_(size);
     for(size_t i = 0; i < size; i++){
       mpack_read(tokbuf, buf_ptr, buf_remaining, token);
       result->data.bool_arr[i] = mpack_unpack_boolean(*token);
@@ -837,10 +838,10 @@ ParsedData* parse_bool_array(mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_
     return result;
 }
 
-ParsedData* parse_int_array(mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token){
+Anything* parse_int_array(mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token){
     mpack_read(tokbuf, buf_ptr, buf_remaining, token);
     size_t size = token->length;
-    ParsedData* result = array_int_data_(size);
+    Anything* result = array_int_data_(size);
     for(size_t i = 0; i < size; i++){
       mpack_read(tokbuf, buf_ptr, buf_remaining, token);
       switch(token->type){
@@ -861,10 +862,10 @@ ParsedData* parse_int_array(mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t
     return result;
 }
 
-ParsedData* parse_float_array(mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token){
+Anything* parse_float_array(mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token){
     mpack_read(tokbuf, buf_ptr, buf_remaining, token);
     size_t size = token->length;
-    ParsedData* result = array_float_data_(size);
+    Anything* result = array_float_data_(size);
     for(size_t i = 0; i < size; i++){
       mpack_read(tokbuf, buf_ptr, buf_remaining, token);
       result->data.float_arr[i] = (double)mpack_unpack_float(*token);
@@ -872,10 +873,10 @@ ParsedData* parse_float_array(mpack_tokbuf_t* tokbuf, const char** buf_ptr, size
     return result;
 }
 
-ParsedData* parse_array(const Schema* schema, mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token){
+Anything* parse_array(const Schema* schema, mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token){
     mpack_read(tokbuf, buf_ptr, buf_remaining, token);
     size_t size = token->length;
-    ParsedData* result = array_data_(size);
+    Anything* result = array_data_(size);
 
     for(size_t i = 0; i < size; i++){
         result->data.obj_arr[i] = parse_obj(schema, tokbuf, buf_ptr, buf_remaining, token);
@@ -884,10 +885,10 @@ ParsedData* parse_array(const Schema* schema, mpack_tokbuf_t* tokbuf, const char
     return result;
 }
 
-ParsedData* parse_tuple(const Schema* schema, mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token){
+Anything* parse_tuple(const Schema* schema, mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token){
     mpack_read(tokbuf, buf_ptr, buf_remaining, token);
     size_t size = token->length;
-    ParsedData* result = tuple_data_(size);
+    Anything* result = tuple_data_(size);
 
     for(size_t i = 0; i < size; i++){
         result->data.obj_arr[i] = parse_obj(schema->parameters[i], tokbuf, buf_ptr, buf_remaining, token);
@@ -896,10 +897,10 @@ ParsedData* parse_tuple(const Schema* schema, mpack_tokbuf_t* tokbuf, const char
     return result;
 }
 
-ParsedData* parse_map(const Schema* schema, mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token){
+Anything* parse_map(const Schema* schema, mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token){
     mpack_read(tokbuf, buf_ptr, buf_remaining, token);
     size_t size = token->length;
-    ParsedData* result = map_data_(size);
+    Anything* result = map_data_(size);
     char* key;
 
     for(size_t i = 0; i < size; i++){
@@ -911,7 +912,7 @@ ParsedData* parse_map(const Schema* schema, mpack_tokbuf_t* tokbuf, const char**
     return result;
 }
 
-ParsedData* parse_obj(const Schema* schema, mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token){
+Anything* parse_obj(const Schema* schema, mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token){
     switch(schema->type){
       case MORLOC_NIL:
         return parse_nil(tokbuf, buf_ptr, buf_remaining, token);
@@ -938,14 +939,15 @@ ParsedData* parse_obj(const Schema* schema, mpack_tokbuf_t* tokbuf, const char**
       case MORLOC_FLOAT_ARRAY:
         return parse_float_array(tokbuf, buf_ptr, buf_remaining, token);
       case MORLOC_EXT:
-        // no exensions are used yet
-        return NULL;
+        fprintf(stderr, "Unexpected schema type in parse_obj\n");
+        break;
       default:
         break;
     }
+    return NULL;
 }
 
-ParsedData* unpack_with_schema(const char** buf_ptr, size_t* buf_remaining, const Schema* schema) {
+Anything* unpack_with_schema(const char** buf_ptr, size_t* buf_remaining, const Schema* schema) {
     mpack_tokbuf_t tokbuf;
     mpack_tokbuf_init(&tokbuf);
     mpack_token_t token;
@@ -968,12 +970,12 @@ void write_tokens(const char** buf_ptr, size_t* buf_remaining){
 }
 
 
-int pack(const ParsedData* data, const char* schema_str, char** out_data, size_t* out_size) {
+int pack(const Anything* data, const char* schema_str, char** out_data, size_t* out_size) {
     Schema* schema = parse_schema(&schema_str);
     return pack_with_schema(data, schema, out_data, out_size);
 }
 
-int unpack(const char* data, size_t size, const char* schema_str, ParsedData** out_data) {
+int unpack(const char* data, size_t size, const char* schema_str, Anything** out_data) {
     const Schema* schema = parse_schema(&schema_str);
     // Use the existing unpack_with_schema function, but adapt it to the new prototype
     const char* buf = data;
@@ -1007,7 +1009,7 @@ const char* get_type_string(morloc_serial_type type) {
 }
 
 // Function to print Schema
-void print_schema(const Schema* schema, int indent) {
+void print_schema_r(const Schema* schema, int indent) {
     if (schema == NULL) {
         fprintf(stderr, "null");
         return;
@@ -1021,7 +1023,7 @@ void print_schema(const Schema* schema, int indent) {
         fprintf(stderr, ",\n%*s\"parameters\": [\n", indent + 2, "");
         for (size_t i = 0; i < schema->size; i++) {
             fprintf(stderr, "%*s", indent + 4, "");
-            print_schema(schema->parameters[i], indent + 4);
+            print_schema_r(schema->parameters[i], indent + 4);
             if (i < schema->size - 1) fprintf(stderr, ",");
             fprintf(stderr, "\n");
         }
@@ -1040,8 +1042,14 @@ void print_schema(const Schema* schema, int indent) {
     fprintf(stderr, "\n%*s}", indent, "");
 }
 
-// Function to print ParsedData
-void print_parsed_data(const ParsedData* data, int indent) {
+void print_schema(const Schema* schema){
+  print_schema_r(schema, 0);
+}
+
+
+
+// Function to print Anything
+void print_parsed_data_r(const Anything* data, int indent) {
     if (data == NULL) {
         fprintf(stderr, "null");
         return;
@@ -1082,7 +1090,7 @@ void print_parsed_data(const ParsedData* data, int indent) {
             fprintf(stderr, "[\n");
             for (size_t i = 0; i < data->size; i++) {
                 fprintf(stderr, "%*s", indent + 4, "");
-                print_parsed_data(data->data.obj_arr[i], indent + 4);
+                print_parsed_data_r(data->data.obj_arr[i], indent + 4);
                 if (i < data->size - 1) fprintf(stderr, ",");
                 fprintf(stderr, "\n");
             }
@@ -1118,4 +1126,8 @@ void print_parsed_data(const ParsedData* data, int indent) {
     }
 
     fprintf(stderr, "\n%*s}", indent, "");
+}
+
+void print_parsed_data(const Anything* data){
+  print_parsed_data_r(data, 0);
 }
