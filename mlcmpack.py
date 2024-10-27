@@ -114,6 +114,7 @@ def parse_schema(schema: str) -> list:
     return result
 
 def python_to_parsed_data_r(data, schema, key = None) -> Anything:
+
     pd = Anything()
 
     if isinstance(key, str):
@@ -141,7 +142,7 @@ def python_to_parsed_data_r(data, schema, key = None) -> Anything:
         buffer = ctypes.create_string_buffer(data)
         pd.data.char_arr = ctypes.cast(buffer, ctypes.POINTER(ctypes.c_char))
     elif schema[0] == "a":
-        array_schema = schema[1][0]
+        array_schema = schema[1]
         if array_schema[0] == "b":
              pd.size = len(data)
              arr = (ctypes.c_bool * pd.size)(*data)
@@ -176,6 +177,7 @@ def python_to_parsed_data_r(data, schema, key = None) -> Anything:
         pd.data.obj_arr = arr
     else:
         print(f"Bad schema: {str(schema)}", file=sys.stderr)
+
     return pd
 
 def python_to_parsed_data(data, schema: str) -> Anything:
@@ -226,11 +228,11 @@ lib.unpack.restype = ctypes.c_int
 def pack_data(data: Anything, schema: str) -> bytes:
     out_data = ctypes.POINTER(ctypes.c_char)()
     out_size = ctypes.c_size_t()
-    
+
     # Convert Python string to bytes, then to c_char_p
     schema_bytes = schema.encode('utf-8')
     schema_c_str = ctypes.c_char_p(schema_bytes)
-    
+
     result = lib.pack(ctypes.byref(data), schema_c_str, ctypes.byref(out_data), ctypes.byref(out_size))
     if result != 0:
         raise RuntimeError("Packing failed")
@@ -349,14 +351,14 @@ if __name__ == "__main__":
         for i in range(31):  # 31 because 2^31 is already the max signed 32-bit int
             base = 2**i
             current_sum += base
-        
+
             # Individual powers of 2 and their +/- 1 values
             powers_of_2.extend([base - 1, base, base + 1, -(base - 1), -base, -(base + 1)])
-        
+
             # Sums of powers of 2 and their +/- 1 values
             sums_of_powers.extend([current_sum - 1, current_sum, current_sum + 1,
                                    -(current_sum - 1), -current_sum, -(current_sum + 1)])
-        
+
             # Add intermediate sums (e.g., 2^3 + 2^2)
             if i > 0:
                 intermediate_sum = base + 2**(i-1)
@@ -372,7 +374,7 @@ if __name__ == "__main__":
     def schema_size(number: int) -> str:
         """
         Convert a number between 0 and 63 to its corresponding character.
-        
+
         :param number: An integer between 0 and 63
         :return: The corresponding character
         """
@@ -406,6 +408,9 @@ if __name__ == "__main__":
     }
 
     big_schema = "m" + schema_size(len(big_schema_dict)) + "".join([schema_size(len(k)) + k + v for (k, v) in big_schema_dict.items()])
+
+    map_data = (['a', 'b'], [(['c', 'd'], [(1, [1.0, 2.0]), (2, [3.0, 4.0])]), (['e'], [(45, [5.6, 6.7])])])
+    map_schema = "t2asat2asat2i4af8"
 
     big_data = {
         "null_value": None,
@@ -458,7 +463,8 @@ if __name__ == "__main__":
         ("Tuple with bool and int", "t2bi4", (False, 42069)),
         ("Map with bool and int keys", "m21ab1bi4", {"a": True, "b": 42}),
         #
-        ("Complex nested structure", big_schema, big_data)
+        ("Complex nested structure", big_schema, big_data),
+        ("map", map_schema, map_data),
     ]
 
     max_width = max(len(desc) for (desc, _, _) in test_cases) + 2
@@ -468,19 +474,24 @@ if __name__ == "__main__":
 
         try:
             msgpack_data = pack(data, schema)
-
-            result = unpack(msgpack_data, schema)
-
-            end_time = time.time()
-
-            elapsed_time = end_time - start_time
-
-            if result == data:
-                print(f"{description:<{max_width}} {Fore.GREEN}pass{Style.RESET_ALL} ({elapsed_time:.4f}s)")
-            else:
-                print(f"{description:<{max_width}} {Fore.RED}fail{Style.RESET_ALL}")
-                print(f"Error: Result does not match expected data")
-
         except Exception as e:
             print(f"{description:<{max_width}} {Fore.RED}fail{Style.RESET_ALL}")
-            print(f"Error: {e}")
+            print(f"Error in pack: {e}")
+            continue
+
+        try:
+            result = unpack(msgpack_data, schema)
+        except Exception as e:
+            print(f"{description:<{max_width}} {Fore.RED}fail{Style.RESET_ALL}")
+            print(f"Error in unpack: {e}")
+            continue
+
+        end_time = time.time()
+
+        elapsed_time = end_time - start_time
+
+        if result == data:
+            print(f"{description:<{max_width}} {Fore.GREEN}pass{Style.RESET_ALL} ({elapsed_time:.4f}s)")
+        else:
+            print(f"{description:<{max_width}} {Fore.RED}fail{Style.RESET_ALL}")
+            print(f"Error: Result does not match expected data")
