@@ -1,3 +1,6 @@
+#ifndef __MLCMPACK_CPP_BINDINGS_HPP__
+#define __MLCMPACK_CPP_BINDINGS_HPP__
+
 #include <vector>
 #include <tuple>
 #include <stdexcept>
@@ -5,8 +8,19 @@
 #include <iostream>
 #include <string>
 
-
 #include "mlcmpack.h"
+
+// The two main exported functions are mpk_pack and mpk_unpack. These translate
+// to and from MessagePack format given a schema.
+
+template<typename T>
+std::vector<char> mpk_pack(const T& data, const std::string& schema_str);
+
+template<typename T>
+T mpk_unpack(const std::vector<char>& packed_data, const std::string& schema_str);
+
+
+
 
 // Helper function to check schema type
 void checkSchemaType(const Schema* schema, morloc_serial_type expected_type) {
@@ -196,7 +210,7 @@ Tuple fromTupleAnythingHelper(const Schema* schema, const Anything* anything, st
 
 
 template<typename T>
-std::vector<char> pack_cpp(const T& data, const std::string& schema_str) {
+std::vector<char> mpk_pack(const T& data, const std::string& schema_str) {
     const char* schema_ptr = schema_str.c_str();
     Schema* schema = parse_schema(&schema_ptr);
 
@@ -222,7 +236,7 @@ std::vector<char> pack_cpp(const T& data, const std::string& schema_str) {
 }
 
 template<typename T>
-T unpack_cpp(const std::vector<char>& packed_data, const std::string& schema_str) {
+T mpk_unpack(const std::vector<char>& packed_data, const std::string& schema_str) {
     const char* schema_ptr = schema_str.c_str();
     Schema* schema = parse_schema(&schema_ptr);
 
@@ -241,39 +255,4 @@ T unpack_cpp(const std::vector<char>& packed_data, const std::string& schema_str
     return x;
 }
 
-// ANSI color codes
-const char* GREEN = "\033[32m"; // Green
-const char* RED = "\033[31m";   // Red
-const char* RESET = "\033[0m";  // Reset to default
-
-template<typename T>
-void generic_test(const std::string& description, const std::string& schema_str, const T& data) {
-    try {
-        std::vector<char> msgpack_data = pack_cpp(data, schema_str);
-        T data_ret = unpack_cpp<T>(msgpack_data, schema_str);
-        
-        // Here you might want to add a comparison between data and data_ret
-        // to ensure they are equal after the pack/unpack cycle
-
-        fprintf(stderr, "%s: %s... pass%s\n", description.c_str(), GREEN, RESET);
-    } catch (const std::exception& e) {
-        fprintf(stderr, "%s: %s... fail: %s%s\n", description.c_str(), RED, e.what(), RESET);
-    }
-}
-
-
-
-int main() {
-    generic_test<bool>("Test boolean", "b", true);
-    generic_test("Test float", "f", 3.14);
-    generic_test("Test integer", "i4", 14);
-    generic_test("Test string", "s", std::string("Hello"));
-    generic_test<>("Test raw binary", "r", std::vector<char>{0x01, 0x02, 0x03});
-    generic_test("Test array of integers", "ai4", std::vector<int>{1, 2, 3, 4, 5});
-    generic_test("Test array of floats", "af8", std::vector<double>{1.0, 2.0, 3.0});
-    generic_test("Test array of booleans", "ab", std::vector<bool>{true,false,true});
-    generic_test("Test array of arrays of booleans", "aab", std::vector<std::vector<bool>>{std::vector<bool>{true,false,true}, std::vector<bool>{false,true}});
-    generic_test("Test tuple of int and array of floats", "t2i4af8", std::make_tuple(42, std::vector<double>{1.1, 2.2, 3.3}));
-
-    return 0;
-}
+#endif

@@ -1,4 +1,4 @@
-dyn.load("mlcmpack_r.so")
+dyn.load("~/.morloc/lib/libmpackr.so")
 
 pack <- function(obj, schema) {
     .Call("_mlcmpack_r_pack", obj, schema)
@@ -54,14 +54,14 @@ for (case in test_cases) {
         returned_data <- unpack(msgpack_data, schema_str)
 
         if (compare_objects(original_data, returned_data)) {
-            cat(test_description, color_text("- pass", "green"), "\n")
+            cat(test_description, "...", color_text("pass", "green"), "\n")
         } else {
-            cat(test_description, color_text("- fail", "red"), "\n")
+            cat(test_description, "...", color_text("fail", "red"), "\n")
             cat("Original:", toString(original_data), "\n")
             cat("Returned:", toString(returned_data), "\n")
         }
     }, error = function(e) {
-        cat(test_description, color_text("- ERROR", "red"), "\n")
+        cat(test_description, "...", color_text("ERROR", "red"), "\n")
         cat("Error message:", e$message, "\n")
     })
 }

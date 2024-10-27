@@ -1,14 +1,15 @@
-cpp:
-	g++ mlcmpack.cpp mpack.[ch] mlcmpack.[ch]
+all:
+	# build morloc c mpack library and install
+	gcc -shared -o ~/.morloc/lib/libmlcmpack.so -fPIC src/mlcmpack.[ch] src/mpack.[ch]
+	cp src/mlcmpack.h ~/.morloc/include/
+	# build R libraries
+	mkdir -p rbuild
+	cp lang/r/rmpack.c src/mlcmpack.[ch] src/mpack.[ch] rbuild
+	cd rbuild && R CMD SHLIB -o librmpack.so *.[ch] && mv librmpack.so ~/.morloc/lib/libmpackr.so
+	rm -rf rbuild
 
 test:
-	bash test.sh
-
-pylib:
-	gcc -shared -o mlcmpack.so -fPIC mlcmpack.[ch] mpack.[ch]
-
-rlib:
-	R CMD SHLIB -o mlcmpack_r.so mlcmpack_r.c mlcmpack.[ch] mpack.[ch]
+	bash test/test.sh
 
 clean:
-	rm -f a.out *.gch *.so
+	rm -fr a.out *.gch *.so *.o rbuild/

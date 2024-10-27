@@ -1,0 +1,3 @@
+The cppmpack.hpp header file will need to be included with a morloc C++
+pool. Since it includes template programming, it can't be compiled into a shared
+library.
