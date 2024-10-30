@@ -9,7 +9,7 @@ echo "Testing C++"
 mkdir -p cppbuild
 cp ../lang/cpp/cppmpack.hpp ../src/*.[ch] "test.cpp" cppbuild
 cd cppbuild
-g++ -o ../cpptest *.[ch] *.hpp *.cpp
+g++ -std=c++20 -o ../cpptest *.[ch] *.hpp *.cpp
 cd ..
 ./cpptest
 rm -f cpptest
