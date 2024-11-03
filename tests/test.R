@@ -31,18 +31,42 @@ compare_objects <- function(obj1, obj2) {
 }
 
 test_cases <- list(
+    # bools
     list("Test boolean", "b", TRUE),
-    list("Test float", "f", 3.14),
+    list("Test booleans", "ab", c(TRUE, FALSE)),
+    list("Test booleans list", "ab", list(TRUE, FALSE), c(TRUE, FALSE)),
+    # floats
+    list("Test float", "f8", 3.14),
+    list("Test floats", "af8", c(3.14, 5.6)),
+    list("Test floats", "af8", list(3.14, 5.6), c(3.14, 5.6)),
+    # ints
     list("Test integer", "i4", 14L),
+    list("Test integers", "ai4", c(14L, 15L)),
+    list("Test integers list", "ai4", list(14L, 15L), c(14L, 15L)),
+    list("Test integer from double", "i4", 14, 14L),
+    list("Test integers from doubles", "ai4", c(14, 15), c(14L, 15L)),
+    list("Test integers list from doubles", "ai4", list(14, 15), c(14L, 15L)),
+    # strings
     list("Test string", "s", "Hello"),
+    list("Test strings", "as", c("Hello", "Goodbye")),
+    list("Test strings list", "as", list("Hello", "Goodbye"), c("Hello", "Goodbye")),
+    # binary
     list("Test raw binary", "r", as.raw(c(0x01, 0x02, 0x03))),
-    list("Test array of integers", "ai4", c(1L,2L,3L,4L,5L)),
-    list("Test array of floats", "af8", c(1.0, 2.0, 3.0)),
-    list("Test array of booleans", "ab", c(TRUE,FALSE,FALSE)),
+    list("Test raw binaries", "ar", list(as.raw(c(0x01, 0x02, 0x03)), as.raw(c(0x00, 0x01)))),
+    # lists
     list("Test array of arrays of booleans", "aab", list(c(TRUE,FALSE), c(FALSE,FALSE,TRUE))),
     list("Test tuple of int and array of floats", "t2i4af8", list(42L, c(1.1, 2.2, 3.3))),
-    list("big numeric vector", "af8", runif(1000000))
+    list("big numeric vector", "af8", runif(1000000)),
+    # tuples
+    list("tuple of lists", "t2asaai4", list(c("a", "b"), list(c(1,2,3), c(4,5,6)))),
+    # maps
+    list("map", "m21ab1bi4", list(a = T, b = 42)),
+    list("list of maps", "am21ab1bi4", list(list(a = T, b = 42), list(a = F, b = 420)))
 )
+
+
+nfails <- 0
+ntotal <- length(test_cases)
 
 for (case in test_cases) {
     test_description <- case[[1]]
@@ -53,15 +77,25 @@ for (case in test_cases) {
         msgpack_data <- pack(original_data, schema_str)
         returned_data <- unpack(msgpack_data, schema_str)
 
-        if (compare_objects(original_data, returned_data)) {
+        if (length(case) == 4){
+          expected_data <- case[[4]]
+        } else {
+          expected_data <- original_data
+        }
+
+        if (compare_objects(expected_data, returned_data)) {
             cat(test_description, "...", color_text("pass", "green"), "\n")
         } else {
+            nfails <- nfails + 1
             cat(test_description, "...", color_text("fail", "red"), "\n")
-            cat("Original:", toString(original_data), "\n")
+            cat("Original:", toString(expected_data), "\n")
             cat("Returned:", toString(returned_data), "\n")
         }
     }, error = function(e) {
-        cat(test_description, "...", color_text("ERROR", "red"), "\n")
+        nfails <<- nfails + 1
+        cat(test_description, "...", color_text("fail", "red"), "\n")
         cat("Error message:", e$message, "\n")
     })
 }
+
+cat(nfails, "/", ntotal, " failed\n")

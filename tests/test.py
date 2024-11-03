@@ -135,6 +135,7 @@ test_cases = [
     #
     ("Complex nested structure", big_schema, big_data),
     ("map", map_schema, map_data),
+    ("nested tuples", "at2si4", [("Alice",42), ("Bob",40)]),
 ]
 
 max_width = max(len(desc) for (desc, _, _) in test_cases) + 2
