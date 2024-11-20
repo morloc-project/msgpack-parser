@@ -10,6 +10,7 @@
 #include <assert.h>
 #include <limits.h>
 #include <stddef.h>
+#include <stdint.h>
 
 #ifdef __GNUC__
 # define FPURE __attribute__((const))
@@ -23,18 +24,9 @@
 # define FUNUSED
 #endif
 
-#if UINT_MAX == 0xffffffff
-typedef int mpack_sint32_t;
-typedef unsigned int mpack_uint32_t;
-#elif ULONG_MAX == 0xffffffff
-typedef long mpack_sint32_t;
-typedef unsigned long mpack_uint32_t;
-#else
-# error "can't find unsigned 32-bit integer type"
-#endif
-
 typedef struct mpack_value_s {
-  mpack_uint32_t lo, hi;
+  uint32_t lo;
+  uint32_t hi;
 } mpack_value_t;
 
 
@@ -62,7 +54,7 @@ typedef enum {
 
 typedef struct mpack_token_s {
   mpack_token_type_t type;  /* Type of token */
-  mpack_uint32_t length;    /* Byte length for str/bin/ext/chunk/float/int/uint.
+  uint32_t length;    /* Byte length for str/bin/ext/chunk/float/int/uint.
                                Item count for array/map. */
   union {
     mpack_value_t value;    /* 32-bit parts of primitives (bool,int,float) */
@@ -75,7 +67,7 @@ typedef struct mpack_tokbuf_s {
   char pending[MPACK_MAX_TOKEN_LEN];
   mpack_token_t pending_tok;
   size_t ppos, plen;
-  mpack_uint32_t passthrough;
+  uint32_t passthrough;
 } mpack_tokbuf_t;
 
 #define MPACK_TOKBUF_INITIAL_VALUE { { 0 }, { 0, 0, { { 0, 0 } } }, 0, 0, 0 }
@@ -86,40 +78,28 @@ MPACK_API int mpack_read(mpack_tokbuf_t *tb, const char **b, size_t *bl,
 MPACK_API int mpack_write(mpack_tokbuf_t *tb, char **b, size_t *bl,
     const mpack_token_t *tok) FUNUSED FNONULL;
 
-
-#if ULLONG_MAX == 0xffffffffffffffff
-typedef long long mpack_sintmax_t;
-typedef unsigned long long mpack_uintmax_t;
-#elif UINT64_MAX == 0xffffffffffffffff
-typedef int64_t mpack_sintmax_t;
-typedef uint64_t mpack_uintmax_t;
-#else
-typedef mpack_sint32_t mpack_sintmax_t;
-typedef mpack_uint32_t mpack_uintmax_t;
-#endif
-
 #ifndef bool
 # define bool unsigned
 #endif
 
 MPACK_API mpack_token_t mpack_pack_nil(void) FUNUSED FPURE;
 MPACK_API mpack_token_t mpack_pack_boolean(unsigned v) FUNUSED FPURE;
-MPACK_API mpack_token_t mpack_pack_uint(mpack_uintmax_t v) FUNUSED FPURE;
-MPACK_API mpack_token_t mpack_pack_sint(mpack_sintmax_t v) FUNUSED FPURE;
+MPACK_API mpack_token_t mpack_pack_uint(uint64_t v) FUNUSED FPURE;
+MPACK_API mpack_token_t mpack_pack_sint(int64_t v) FUNUSED FPURE;
 MPACK_API mpack_token_t mpack_pack_float_compat(double v) FUNUSED FPURE;
 MPACK_API mpack_token_t mpack_pack_float_fast(double v) FUNUSED FPURE;
 MPACK_API mpack_token_t mpack_pack_number(double v) FUNUSED FPURE;
-MPACK_API mpack_token_t mpack_pack_chunk(const char *p, mpack_uint32_t l)
+MPACK_API mpack_token_t mpack_pack_chunk(const char *p, uint32_t l)
   FUNUSED FPURE FNONULL;
-MPACK_API mpack_token_t mpack_pack_str(mpack_uint32_t l) FUNUSED FPURE;
-MPACK_API mpack_token_t mpack_pack_bin(mpack_uint32_t l) FUNUSED FPURE;
-MPACK_API mpack_token_t mpack_pack_ext(int type, mpack_uint32_t l)
+MPACK_API mpack_token_t mpack_pack_str(uint32_t l) FUNUSED FPURE;
+MPACK_API mpack_token_t mpack_pack_bin(uint32_t l) FUNUSED FPURE;
+MPACK_API mpack_token_t mpack_pack_ext(int type, uint32_t l)
   FUNUSED FPURE;
-MPACK_API mpack_token_t mpack_pack_array(mpack_uint32_t l) FUNUSED FPURE;
-MPACK_API mpack_token_t mpack_pack_map(mpack_uint32_t l) FUNUSED FPURE;
+MPACK_API mpack_token_t mpack_pack_array(uint32_t l) FUNUSED FPURE;
+MPACK_API mpack_token_t mpack_pack_map(uint32_t l) FUNUSED FPURE;
 MPACK_API bool mpack_unpack_boolean(mpack_token_t t) FUNUSED FPURE;
-MPACK_API mpack_uintmax_t mpack_unpack_uint(mpack_token_t t) FUNUSED FPURE;
-MPACK_API mpack_sintmax_t mpack_unpack_sint(mpack_token_t t) FUNUSED FPURE;
+MPACK_API uint64_t mpack_unpack_uint(mpack_token_t t) FUNUSED FPURE;
+MPACK_API int64_t mpack_unpack_sint(mpack_token_t t) FUNUSED FPURE;
 MPACK_API double mpack_unpack_float_fast(mpack_token_t t) FUNUSED FPURE;
 MPACK_API double mpack_unpack_float_compat(mpack_token_t t) FUNUSED FPURE;
 MPACK_API double mpack_unpack_number(mpack_token_t t) FUNUSED FPURE;
@@ -141,7 +121,7 @@ MPACK_API double mpack_unpack_number(mpack_token_t t) FUNUSED FPURE;
 
 #define UNUSED(p) (void)p;
 #define ADVANCE(buf, buflen) ((*buflen)--, (unsigned char)*((*buf)++))
-#define TLEN(val, range_start) ((mpack_uint32_t)(1 << (val - range_start)))
+#define TLEN(val, range_start) ((uint32_t)(1 << (val - range_start)))
 #ifndef MIN
 # define MIN(X, Y) ((X) < (Y) ? (X) : (Y))
 #endif
@@ -149,28 +129,28 @@ MPACK_API double mpack_unpack_number(mpack_token_t t) FUNUSED FPURE;
 static int mpack_rtoken(const char **buf, size_t *buflen,
     mpack_token_t *tok);
 static int mpack_rpending(const char **b, size_t *nl, mpack_tokbuf_t *tb);
-static int mpack_rvalue(mpack_token_type_t t, mpack_uint32_t l,
+static int mpack_rvalue(mpack_token_type_t t, uint32_t l,
     const char **b, size_t *bl, mpack_token_t *tok);
-static int mpack_rblob(mpack_token_type_t t, mpack_uint32_t l,
+static int mpack_rblob(mpack_token_type_t t, uint32_t l,
     const char **b, size_t *bl, mpack_token_t *tok);
 static int mpack_wtoken(const mpack_token_t *tok, char **b, size_t *bl);
 static int mpack_wpending(char **b, size_t *bl, mpack_tokbuf_t *tb);
 static int mpack_wpint(char **b, size_t *bl, mpack_value_t v);
 static int mpack_wnint(char **b, size_t *bl, mpack_value_t v);
 static int mpack_wfloat(char **b, size_t *bl, const mpack_token_t *v);
-static int mpack_wstr(char **buf, size_t *buflen, mpack_uint32_t len);
-static int mpack_wbin(char **buf, size_t *buflen, mpack_uint32_t len);
+static int mpack_wstr(char **buf, size_t *buflen, uint32_t len);
+static int mpack_wbin(char **buf, size_t *buflen, uint32_t len);
 static int mpack_wext(char **buf, size_t *buflen, int type,
-    mpack_uint32_t len);
-static int mpack_warray(char **buf, size_t *buflen, mpack_uint32_t len);
-static int mpack_wmap(char **buf, size_t *buflen, mpack_uint32_t len);
-static int mpack_w1(char **b, size_t *bl, mpack_uint32_t v);
-static int mpack_w2(char **b, size_t *bl, mpack_uint32_t v);
-static int mpack_w4(char **b, size_t *bl, mpack_uint32_t v);
+    uint32_t len);
+static int mpack_warray(char **buf, size_t *buflen, uint32_t len);
+static int mpack_wmap(char **buf, size_t *buflen, uint32_t len);
+static int mpack_w1(char **b, size_t *bl, uint32_t v);
+static int mpack_w2(char **b, size_t *bl, uint32_t v);
+static int mpack_w4(char **b, size_t *bl, uint32_t v);
 static mpack_value_t mpack_byte(unsigned char b);
-static int mpack_value(mpack_token_type_t t, mpack_uint32_t l,
+static int mpack_value(mpack_token_type_t t, uint32_t l,
     mpack_value_t v, mpack_token_t *tok);
-static int mpack_blob(mpack_token_type_t t, mpack_uint32_t l, int et,
+static int mpack_blob(mpack_token_type_t t, uint32_t l, int et,
     mpack_token_t *tok);
 
 MPACK_API void mpack_tokbuf_init(mpack_tokbuf_t *tokbuf)
@@ -193,7 +173,7 @@ MPACK_API int mpack_read(mpack_tokbuf_t *tokbuf, const char **buf,
      * *buf and *buflen */
     tok->type = MPACK_TOKEN_CHUNK;
     tok->data.chunk_ptr = *buf;
-    tok->length = MIN((mpack_uint32_t)*buflen, tokbuf->passthrough);
+    tok->length = MIN((uint32_t)*buflen, tokbuf->passthrough);
     tokbuf->passthrough -= tok->length;
     *buf += tok->length;
     *buflen -= tok->length;
@@ -398,7 +378,7 @@ static int mpack_rpending(const char **buf, size_t *buflen,
   return 1;
 }
 
-static int mpack_rvalue(mpack_token_type_t type, mpack_uint32_t remaining,
+static int mpack_rvalue(mpack_token_type_t type, uint32_t remaining,
     const char **buf, size_t *buflen, mpack_token_t *tok)
 {
   if (*buflen < remaining) {
@@ -409,8 +389,8 @@ static int mpack_rvalue(mpack_token_type_t type, mpack_uint32_t remaining,
   mpack_value(type, remaining, mpack_byte(0), tok);
 
   while (remaining) {
-    mpack_uint32_t byte = ADVANCE(buf, buflen), byte_idx, byte_shift;
-    byte_idx = (mpack_uint32_t)--remaining;
+    uint32_t byte = ADVANCE(buf, buflen), byte_idx, byte_shift;
+    byte_idx = (uint32_t)--remaining;
     byte_shift = (byte_idx % 4) * 8;
     tok->data.value.lo |= byte << byte_shift;
     if (remaining == 4) {
@@ -422,9 +402,9 @@ static int mpack_rvalue(mpack_token_type_t type, mpack_uint32_t remaining,
   }
 
   if (type == MPACK_TOKEN_SINT) {
-    mpack_uint32_t hi = tok->data.value.hi;
-    mpack_uint32_t lo = tok->data.value.lo;
-    mpack_uint32_t msb = (tok->length == 8 && hi >> 31) ||
+    uint32_t hi = tok->data.value.hi;
+    uint32_t lo = tok->data.value.lo;
+    uint32_t msb = (tok->length == 8 && hi >> 31) ||
                          (tok->length == 4 && lo >> 31) ||
                          (tok->length == 2 && lo >> 15) ||
                          (tok->length == 1 && lo >> 7);
@@ -436,11 +416,11 @@ static int mpack_rvalue(mpack_token_type_t type, mpack_uint32_t remaining,
   return MPACK_OK;
 }
 
-static int mpack_rblob(mpack_token_type_t type, mpack_uint32_t tlen,
+static int mpack_rblob(mpack_token_type_t type, uint32_t tlen,
     const char **buf, size_t *buflen, mpack_token_t *tok)
 {
   mpack_token_t l;
-  mpack_uint32_t required = tlen + (type == MPACK_TOKEN_EXT ? 1 : 0);
+  uint32_t required = tlen + (type == MPACK_TOKEN_EXT ? 1 : 0);
 
   if (*buflen < required) {
     tok->length = required;
@@ -506,8 +486,8 @@ static int mpack_wpending(char **buf, size_t *buflen, mpack_tokbuf_t *state)
 
 static int mpack_wpint(char **buf, size_t *buflen, mpack_value_t val)
 {
-  mpack_uint32_t hi = val.hi;
-  mpack_uint32_t lo = val.lo;
+  uint32_t hi = val.hi;
+  uint32_t lo = val.lo;
 
   if (hi) {
     /* uint 64 */
@@ -533,8 +513,8 @@ static int mpack_wpint(char **buf, size_t *buflen, mpack_value_t val)
 
 static int mpack_wnint(char **buf, size_t *buflen, mpack_value_t val)
 {
-  mpack_uint32_t hi = val.hi;
-  mpack_uint32_t lo = val.lo;
+  uint32_t hi = val.hi;
+  uint32_t lo = val.lo;
 
   if (lo <= 0x80000000) {
     /* int 64 */
@@ -555,7 +535,7 @@ static int mpack_wnint(char **buf, size_t *buflen, mpack_value_t val)
            mpack_w1(buf, buflen, lo);
   } else {
     /* negative fixint */
-    return mpack_w1(buf, buflen, (mpack_uint32_t)(0x100 + lo));
+    return mpack_w1(buf, buflen, (uint32_t)(0x100 + lo));
   }
 }
 
@@ -574,7 +554,7 @@ static int mpack_wfloat(char **buf, size_t *buflen,
   }
 }
 
-static int mpack_wstr(char **buf, size_t *buflen, mpack_uint32_t len)
+static int mpack_wstr(char **buf, size_t *buflen, uint32_t len)
 {
   if (len < 0x20) {
     return mpack_w1(buf, buflen, 0xa0 | len);
@@ -590,7 +570,7 @@ static int mpack_wstr(char **buf, size_t *buflen, mpack_uint32_t len)
   }
 }
 
-static int mpack_wbin(char **buf, size_t *buflen, mpack_uint32_t len)
+static int mpack_wbin(char **buf, size_t *buflen, uint32_t len)
 {
   if (len < 0x100) {
     return mpack_w1(buf, buflen, 0xc4) ||
@@ -605,11 +585,11 @@ static int mpack_wbin(char **buf, size_t *buflen, mpack_uint32_t len)
 }
 
 static int mpack_wext(char **buf, size_t *buflen, int type,
-    mpack_uint32_t len)
+    uint32_t len)
 {
-  mpack_uint32_t t;
+  uint32_t t;
   assert(type >= 0 && type < 0x80);
-  t = (mpack_uint32_t)type;
+  t = (uint32_t)type;
   switch (len) {
     case 1: mpack_w1(buf, buflen, 0xd4); return mpack_w1(buf, buflen, t);
     case 2: mpack_w1(buf, buflen, 0xd5); return mpack_w1(buf, buflen, t);
@@ -633,7 +613,7 @@ static int mpack_wext(char **buf, size_t *buflen, int type,
   }
 }
 
-static int mpack_warray(char **buf, size_t *buflen, mpack_uint32_t len)
+static int mpack_warray(char **buf, size_t *buflen, uint32_t len)
 {
   if (len < 0x10) {
     return mpack_w1(buf, buflen, 0x90 | len);
@@ -646,7 +626,7 @@ static int mpack_warray(char **buf, size_t *buflen, mpack_uint32_t len)
   }
 }
 
-static int mpack_wmap(char **buf, size_t *buflen, mpack_uint32_t len)
+static int mpack_wmap(char **buf, size_t *buflen, uint32_t len)
 {
   if (len < 0x10) {
     return mpack_w1(buf, buflen, 0x80 | len);
@@ -659,14 +639,14 @@ static int mpack_wmap(char **buf, size_t *buflen, mpack_uint32_t len)
   }
 }
 
-static int mpack_w1(char **b, size_t *bl, mpack_uint32_t v)
+static int mpack_w1(char **b, size_t *bl, uint32_t v)
 {
   (*bl)--;
   *(*b)++ = (char)(v & 0xff);
   return MPACK_OK;
 }
 
-static int mpack_w2(char **b, size_t *bl, mpack_uint32_t v)
+static int mpack_w2(char **b, size_t *bl, uint32_t v)
 {
   *bl -= 2;
   *(*b)++ = (char)((v >> 8) & 0xff);
@@ -674,7 +654,7 @@ static int mpack_w2(char **b, size_t *bl, mpack_uint32_t v)
   return MPACK_OK;
 }
 
-static int mpack_w4(char **b, size_t *bl, mpack_uint32_t v)
+static int mpack_w4(char **b, size_t *bl, uint32_t v)
 {
   *bl -= 4;
   *(*b)++ = (char)((v >> 24) & 0xff);
@@ -684,7 +664,7 @@ static int mpack_w4(char **b, size_t *bl, mpack_uint32_t v)
   return MPACK_OK;
 }
 
-static int mpack_value(mpack_token_type_t type, mpack_uint32_t length,
+static int mpack_value(mpack_token_type_t type, uint32_t length,
     mpack_value_t value, mpack_token_t *tok)
 {
   tok->type = type;
@@ -693,7 +673,7 @@ static int mpack_value(mpack_token_type_t type, mpack_uint32_t length,
   return MPACK_OK;
 }
 
-static int mpack_blob(mpack_token_type_t type, mpack_uint32_t length,
+static int mpack_blob(mpack_token_type_t type, uint32_t length,
     int ext_type, mpack_token_t *tok)
 {
   tok->type = type;
@@ -721,7 +701,7 @@ static double mpack_fmod_pow2_32(double a);
 
 #define MPACK_SWAP_VALUE(val)                                  \
   do {                                                         \
-    mpack_uint32_t lo = val.lo;                                \
+    uint32_t lo = val.lo;                                \
     val.lo = val.hi;                                           \
     val.hi = lo;                                               \
   } while (0)
@@ -742,27 +722,27 @@ MPACK_API mpack_token_t mpack_pack_boolean(unsigned v)
   return rv;
 }
 
-MPACK_API mpack_token_t mpack_pack_uint(mpack_uintmax_t v)
+MPACK_API mpack_token_t mpack_pack_uint(uint64_t v)
 {
   mpack_token_t rv;
   rv.data.value.lo = v & 0xffffffff;
-  rv.data.value.hi = (mpack_uint32_t)((v >> 31) >> 1);
+  rv.data.value.hi = (uint32_t)((v >> 31) >> 1);
   rv.type = MPACK_TOKEN_UINT;
   return rv;
 }
 
-MPACK_API mpack_token_t mpack_pack_sint(mpack_sintmax_t v)
+MPACK_API mpack_token_t mpack_pack_sint(int64_t v)
 {
   if (v < 0) {
     mpack_token_t rv;
-    mpack_uintmax_t tc = -((mpack_uintmax_t)(v + 1)) + 1;
+    uint64_t tc = -((uint64_t)(v + 1)) + 1;
     tc = ~tc + 1;
     rv = mpack_pack_uint(tc);
     rv.type = MPACK_TOKEN_SINT;
     return rv;
   }
 
-  return mpack_pack_uint((mpack_uintmax_t)v);
+  return mpack_pack_uint((uint64_t)v);
 }
 
 MPACK_API mpack_token_t mpack_pack_int32(int v){
@@ -804,7 +784,7 @@ MPACK_API mpack_token_t mpack_pack_float_fast(double v)
   if (mpack_fits_single(v)) {
     union {
       float f;
-      mpack_uint32_t m;
+      uint32_t m;
     } conv;
     conv.f = (float)v;
     rv.length = 4;
@@ -833,8 +813,8 @@ MPACK_API mpack_token_t mpack_pack_number(double v)
   double vabs;
   vabs = v < 0 ? -v : v;
   assert(v <= 9007199254740991. && v >= -9007199254740991.);
-  tok.data.value.hi = (mpack_uint32_t)(vabs / POW2(32));
-  tok.data.value.lo = (mpack_uint32_t)mpack_fmod_pow2_32(vabs);
+  tok.data.value.hi = (uint32_t)(vabs / POW2(32));
+  tok.data.value.lo = (uint32_t)mpack_fmod_pow2_32(vabs);
 
   if (v < 0) {
     /* Compute the two's complement */
@@ -862,7 +842,7 @@ MPACK_API mpack_token_t mpack_pack_number(double v)
   return tok;
 }
 
-MPACK_API mpack_token_t mpack_pack_chunk(const char *p, mpack_uint32_t l)
+MPACK_API mpack_token_t mpack_pack_chunk(const char *p, uint32_t l)
 {
   mpack_token_t rv;
   rv.type = MPACK_TOKEN_CHUNK;
@@ -871,7 +851,7 @@ MPACK_API mpack_token_t mpack_pack_chunk(const char *p, mpack_uint32_t l)
   return rv;
 }
 
-MPACK_API mpack_token_t mpack_pack_str(mpack_uint32_t l)
+MPACK_API mpack_token_t mpack_pack_str(uint32_t l)
 {
   mpack_token_t rv;
   rv.type = MPACK_TOKEN_STR;
@@ -879,7 +859,7 @@ MPACK_API mpack_token_t mpack_pack_str(mpack_uint32_t l)
   return rv;
 }
 
-MPACK_API mpack_token_t mpack_pack_bin(mpack_uint32_t l)
+MPACK_API mpack_token_t mpack_pack_bin(uint32_t l)
 {
   mpack_token_t rv;
   rv.type = MPACK_TOKEN_BIN;
@@ -887,7 +867,7 @@ MPACK_API mpack_token_t mpack_pack_bin(mpack_uint32_t l)
   return rv;
 }
 
-MPACK_API mpack_token_t mpack_pack_ext(int t, mpack_uint32_t l)
+MPACK_API mpack_token_t mpack_pack_ext(int t, uint32_t l)
 {
   mpack_token_t rv;
   rv.type = MPACK_TOKEN_EXT;
@@ -896,7 +876,7 @@ MPACK_API mpack_token_t mpack_pack_ext(int t, mpack_uint32_t l)
   return rv;
 }
 
-MPACK_API mpack_token_t mpack_pack_array(mpack_uint32_t l)
+MPACK_API mpack_token_t mpack_pack_array(uint32_t l)
 {
   mpack_token_t rv;
   rv.type = MPACK_TOKEN_ARRAY;
@@ -904,7 +884,7 @@ MPACK_API mpack_token_t mpack_pack_array(mpack_uint32_t l)
   return rv;
 }
 
-MPACK_API mpack_token_t mpack_pack_map(mpack_uint32_t l)
+MPACK_API mpack_token_t mpack_pack_map(uint32_t l)
 {
   mpack_token_t rv;
   rv.type = MPACK_TOKEN_MAP;
@@ -917,9 +897,9 @@ MPACK_API bool mpack_unpack_boolean(mpack_token_t t)
   return t.data.value.lo || t.data.value.hi;
 }
 
-MPACK_API mpack_uintmax_t mpack_unpack_uint(mpack_token_t t)
+MPACK_API uint64_t mpack_unpack_uint(mpack_token_t t)
 {
-  return (((mpack_uintmax_t)t.data.value.hi << 31) << 1) | t.data.value.lo;
+  return (((uint64_t)t.data.value.hi << 31) << 1) | t.data.value.lo;
 }
 
 MPACK_API int mpack_unpack_uint32(mpack_token_t t)
@@ -929,26 +909,26 @@ MPACK_API int mpack_unpack_uint32(mpack_token_t t)
 
 /* unpack signed integer without relying on two's complement as internal
  * representation */
-MPACK_API mpack_sintmax_t mpack_unpack_sint(mpack_token_t t)
+MPACK_API int64_t mpack_unpack_sint(mpack_token_t t)
 {
-  mpack_uint32_t hi = t.data.value.hi;
-  mpack_uint32_t lo = t.data.value.lo;
-  mpack_uintmax_t rv = lo;
+  uint32_t hi = t.data.value.hi;
+  uint32_t lo = t.data.value.lo;
+  uint64_t rv = lo;
   // This assert fails because length is not initialized
   // The problem has probably gone undetected because asserts disappear with -O
-  /* assert(t.length <= sizeof(mpack_sintmax_t)); */
+  /* assert(t.length <= sizeof(int64_t)); */
 
   if (t.length == 8) {
-    rv |= (((mpack_uintmax_t)hi) << 31) << 1;
+    rv |= (((uint64_t)hi) << 31) << 1;
   }
 
   /* reverse the two's complement so that lo/hi contain the absolute value.
    * note that we have to mask ~rv so that it reflects the two's complement
    * of the appropriate byte length */
-  rv = (~rv & (((mpack_uintmax_t)1 << ((t.length * 8) - 1)) - 1)) + 1;
-  /* negate and return the absolute value, making sure mpack_sintmax_t can
+  rv = (~rv & (((uint64_t)1 << ((t.length * 8) - 1)) - 1)) + 1;
+  /* negate and return the absolute value, making sure int64_t can
    * represent the positive cast. */
-  return -((mpack_sintmax_t)(rv - 1)) - 1;
+  return -((int64_t)(rv - 1)) - 1;
 }
 
 MPACK_API int mpack_unpack_sint32(mpack_token_t t)
@@ -961,8 +941,8 @@ MPACK_API int mpack_unpack_sint32(mpack_token_t t)
 
 MPACK_API double mpack_unpack_float_compat(mpack_token_t t)
 {
-  mpack_uint32_t sign;
-  mpack_sint32_t exponent, bias;
+  uint32_t sign;
+  int32_t exponent, bias;
   unsigned mantbits;
   unsigned expbits;
   double mant;
@@ -1003,7 +983,7 @@ MPACK_API double mpack_unpack_float_fast(mpack_token_t t)
   if (t.length == 4) {
     union {
       float f;
-      mpack_uint32_t m;
+      uint32_t m;
     } conv;
     conv.m = t.data.value.lo;
     return conv.f;
@@ -1025,19 +1005,19 @@ MPACK_API double mpack_unpack_float_fast(mpack_token_t t)
 MPACK_API double mpack_unpack_number(mpack_token_t t)
 {
   double rv;
-  mpack_uint32_t hi, lo;
+  uint32_t hi, lo;
   if (t.type == MPACK_TOKEN_FLOAT) return mpack_unpack_float(t);
   assert(t.type == MPACK_TOKEN_UINT || t.type == MPACK_TOKEN_SINT);
   hi = t.data.value.hi;
   lo = t.data.value.lo;
   if (t.type == MPACK_TOKEN_SINT) {
     /* same idea as mpack_unpack_sint, except here we shouldn't rely on
-     * mpack_uintmax_t having 64-bits, operating on the 32-bit words separately.
+     * uint64_t having 64-bits, operating on the 32-bit words separately.
      */
     if (!hi) {
       assert(t.length <= 4);
       hi = 0;
-      lo = (~lo & (((mpack_uint32_t)1 << ((t.length * 8) - 1)) - 1));
+      lo = (~lo & (((uint32_t)1 << ((t.length * 8) - 1)) - 1));
     } else {
       hi = ~hi;
       lo = ~lo;
@@ -1058,8 +1038,8 @@ static mpack_value_t mpack_pack_ieee754(double v, unsigned mantbits,
     unsigned expbits)
 {
   mpack_value_t rv = {0, 0};
-  mpack_sint32_t exponent, bias = (1 << (expbits - 1)) - 1;
-  mpack_uint32_t sign;
+  int32_t exponent, bias = (1 << (expbits - 1)) - 1;
+  uint32_t sign;
   double mant;
 
   if (v == 0) {
@@ -1081,13 +1061,13 @@ static mpack_value_t mpack_pack_ieee754(double v, unsigned mantbits,
   mant *= POW2(mantbits);
 
   if (mantbits == 52) {
-    rv.hi = (mpack_uint32_t)(mant / POW2(32));
-    rv.lo = (mpack_uint32_t)(mant - rv.hi * POW2(32));
-    rv.hi |= ((mpack_uint32_t)exponent << 20) | (sign << 31);
+    rv.hi = (uint32_t)(mant / POW2(32));
+    rv.lo = (uint32_t)(mant - rv.hi * POW2(32));
+    rv.hi |= ((uint32_t)exponent << 20) | (sign << 31);
   } else if (mantbits == 23) {
     rv.hi = 0;
-    rv.lo = (mpack_uint32_t)mant;
-    rv.lo |= ((mpack_uint32_t)exponent << 23) | (sign << 31);
+    rv.lo = (uint32_t)mant;
+    rv.lo |= ((uint32_t)exponent << 23) | (sign << 31);
   }
 
 end:
@@ -1097,8 +1077,8 @@ end:
 static int mpack_is_be(void)
 {
   union {
-    mpack_uint32_t i;
-    char c[sizeof(mpack_uint32_t)];
+    uint32_t i;
+    char c[sizeof(uint32_t)];
   } test;
 
   test.i = 1;
@@ -1109,7 +1089,7 @@ static int mpack_is_be(void)
  * division by 0xffffffff, which is enough for our purposes */
 static double mpack_fmod_pow2_32(double a)
 {
-  return a - ((double)(mpack_uint32_t)(a / POW2(32)) * POW2(32));
+  return a - ((double)(uint32_t)(a / POW2(32)) * POW2(32));
 }
 
 
