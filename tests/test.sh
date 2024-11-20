@@ -9,11 +9,11 @@ echo "Testing C++"
 mkdir -p cppbuild
 cp ../lang/cpp/cppmpack.hpp ../src/*.[ch] "test.cpp" cppbuild
 cd cppbuild
-g++ -std=c++20 -o ../cpptest *.[ch] *.hpp *.cpp
+g++ -g -o ../cpptest *.[ch] *.hpp *.cpp
 cd ..
 ./cpptest
-rm -f cpptest
-rm -rf cppbuild
+# rm -f cpptest
+# rm -rf cppbuild
 
 # echo ""
 # echo "Testing R"

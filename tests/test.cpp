@@ -106,12 +106,12 @@ int main() {
 
     generic_test("Test string", "s", std::string("Helloooo"));
     generic_test<>("Test raw binary", "au1", std::vector<uint8_t>{0x01, 0x02, 0x03});
+    generic_test("Test array of booleans", "ab", std::vector<bool>{true,false,true});
     generic_test("Test array of integers", "ai4", std::vector<int32_t>{1, 2, 3, 4, 5});
-    // generic_test("Test array of float", "af4", std::vector<float>{1.0, 2.0, 3.0});
-    // generic_test("Test array of floats", "af8", std::vector<double>{1.0, 2.0, 3.0});
-    // generic_test("Test array of booleans", "ab", std::vector<bool>{true,false,true});
-    // generic_test("Test array of arrays of booleans", "aab", std::vector<std::vector<bool>>{std::vector<bool>{true,false,true}, std::vector<bool>{false,true}});
-    // generic_test("Test tuple of int and array of floats", "t2i4af8", std::make_tuple(42, std::vector<double>{1.1, 2.2, 3.3}));
+    generic_test("Test array of float", "af4", std::vector<float>{1.0, 2.0, 3.0});
+    generic_test("Test array of doubles", "af8", std::vector<double>{1.0, 2.0, 3.0});
+    generic_test("Test array of arrays of booleans", "aab", std::vector<std::vector<bool>>{std::vector<bool>{true,false,true}, std::vector<bool>{false,true}});
+    generic_test("Test tuple of int and array of floats", "t2i4af8", std::make_tuple(42, std::vector<double>{1.1, 2.2, 3.3}));
     // generic_test("Test Alice", "m24names3agei4", alice);
     // generic_test("Test Alice generic", "m34names3agei44infof8", alice2);
 

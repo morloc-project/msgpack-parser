@@ -1455,6 +1455,7 @@ int pack_data(
 ) {
     mpack_token_t token;
     int result;
+    Array* array;
 
     switch (schema->type) {
         case MORLOC_NIL:
@@ -1497,7 +1498,8 @@ int pack_data(
             token = mpack_pack_str(((Array*)mlc)->size);
             break;
         case MORLOC_ARRAY:
-            token = mpack_pack_array(schema->parameters[0]->width);
+            array = (Array*)mlc;
+            token = mpack_pack_array(array->size);
             break;
         case MORLOC_TUPLE:
             token = mpack_pack_array(schema->size);
@@ -1516,7 +1518,6 @@ int pack_data(
     size_t array_width;
     size_t element_idx;
     Schema* array_schema;
-    Array* array;
 
     switch(schema->type){
       case MORLOC_STRING:
