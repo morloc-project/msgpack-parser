@@ -1107,7 +1107,7 @@ Schema* create_schema_with_params(morloc_serial_type type, size_t width, size_t 
       schema->offsets = (size_t*)calloc(size, sizeof(size_t));
       schema->offsets[0] = 0;
       for(size_t i = 1; i < size; i++){
-        schema->offsets[i] += params[i-1]->width;
+        schema->offsets[i] = schema->offsets[i-1] + params[i-1]->width;
       }
     }
 
@@ -1202,76 +1202,9 @@ Schema* map_schema(size_t size, char** keys, Schema** params) {
     return create_schema_with_params(MORLOC_MAP, width, size, params, keys);
 }
 
-
-void* nil_data(){
-  int8_t* nil = (int8_t*)malloc(sizeof(int8_t));
-  return nil;
-}
-
-void* bool_data(bool x){
-  bool* xptr = (bool*)malloc(sizeof(bool));
-  *xptr = x;
-  return xptr;
-}
-
-void* uint8_data(uint8_t x){
-  uint8_t* xptr = (uint8_t*)malloc(sizeof(uint8_t));
-  *xptr = x;
-  return xptr;
-}
-
-void* uint16_data(uint16_t x){
-  uint16_t* xptr = (uint16_t*)malloc(sizeof(uint16_t));
-  *xptr = x;
-  return xptr;
-}
-
-void* uint32_data(uint32_t x){
-  uint32_t* xptr = (uint32_t*)malloc(sizeof(uint32_t));
-  *xptr = x;
-  return xptr;
-}
-
-void* uint64_data(uint64_t x){
-  uint64_t* xptr = (uint64_t*)malloc(sizeof(uint64_t));
-  *xptr = x;
-  return xptr;
-}
-
-void* sint8_data(int8_t x){
-  int8_t* xptr = (int8_t*)malloc(sizeof(int8_t));
-  *xptr = x;
-  return xptr;
-}
-
-void* sint16_data(int16_t x){
-  int16_t* xptr = (int16_t*)malloc(sizeof(int16_t));
-  *xptr = x;
-  return xptr;
-}
-
-void* sint32_data(int32_t x){
-  int32_t* xptr = (int32_t*)malloc(sizeof(int32_t));
-  *xptr = x;
-  return xptr;
-}
-
-void* sint64_data(int64_t x){
-  int64_t* xptr = (int64_t*)malloc(sizeof(int64_t));
-  *xptr = x;
-  return xptr;
-}
-
-void* float32_data(float x){
-  float* xptr = (float*)malloc(sizeof(float));
-  *xptr = x;
-  return xptr;
-}
-
-void* float64_data(double x){
-  double* xptr = (double*)malloc(sizeof(double));
-  *xptr = x;
-  return xptr;
+void* get_ptr(const Schema* schema){
+    void* ptr = (void*)malloc(schema->width);
+    return ptr;
 }
 
 void* string_data(const char* x, size_t size){
@@ -1545,20 +1478,15 @@ int pack_data(
         break;
       case MORLOC_MAP:
       case MORLOC_TUPLE:
-        // tuples are unboxed data
-        // each element in the tuple is represented by element->width bytes
-        element_idx = 0;
         for (size_t i = 0; i < schema->size; i++) {
             pack_data(
-              (char*)mlc + element_idx,
+              (char*)mlc + schema->offsets[i],
               schema->parameters[i],
               packet,
               packet_ptr,
               packet_remaining,
               tokbuf
             );
-            // move the index to the location after the current element
-            element_idx += schema->parameters[i]->width;
         }
         break;
     }

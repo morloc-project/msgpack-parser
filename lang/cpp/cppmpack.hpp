@@ -28,49 +28,26 @@ void* toAnything(void* dest, const Schema* schema, const T& data);
 
 // Specialization for nullptr_t (NIL)
 void* toAnything(void* dest, const Schema* schema, const std::nullptr_t&) {
-    if(dest){
-      *((int8_t*)dest) = (int8_t)0; 
-      return dest;
+    if(!dest){
+        dest = get_ptr(schema);
     }
-    return nil_data();
+
+    *((int8_t*)dest) = (int8_t)0; 
+
+    return dest;
 }
 
 
 // Primitives
 template<typename Primitive>
 void* toAnything(void* dest, const Schema* schema, const Primitive& data) {
-    if(dest){
-        *((Primitive*)dest) = data;
-        return dest;
-    }
-    switch(schema->type){
-      case MORLOC_BOOL:
-        return bool_data(data);
-      case MORLOC_SINT8:
-        return sint8_data(data);
-      case MORLOC_SINT16:
-        return sint16_data(data);
-      case MORLOC_SINT32:
-        return sint32_data(data);
-      case MORLOC_SINT64:
-        return sint64_data(data);
-      case MORLOC_UINT8:
-        return uint8_data(data);
-      case MORLOC_UINT16:
-        return uint16_data(data);
-      case MORLOC_UINT32:
-        return uint32_data(data);
-      case MORLOC_UINT64:
-        return uint64_data(data);
-      case MORLOC_FLOAT32:
-        return float32_data(data);
-      case MORLOC_FLOAT64:
-        return float64_data(data);
-      default:
-        return NULL;
+    if(!dest){
+        dest = get_ptr(schema);
     }
 
-    return NULL;
+    *((Primitive*)dest) = data;
+
+    return dest;
 }
 
 // Specialization for std::vector (array)
