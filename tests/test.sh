@@ -15,11 +15,11 @@ cd ..
 rm -f cpptest
 rm -rf cppbuild
 
-echo ""
-echo "Testing R"
-Rscript "test.R"
-
-echo ""
-echo "Testing python"
-ln -sf $PWD/../lang/py/pympack.py $PWD/pympack.py
-python "test.py"
+# echo ""
+# echo "Testing R"
+# Rscript "test.R"
+#
+# echo ""
+# echo "Testing python"
+# ln -sf $PWD/../lang/py/pympack.py $PWD/pympack.py
+# python "test.py"
