@@ -91,9 +91,17 @@ int main() {
     // alice2.info = 6.9;
 
     generic_test<bool>("Test boolean", "b", true);
-    // generic_test("Test float", "f", 3.14);
-    // generic_test("Test integer", "i4", 14);
-    // generic_test("Test string", "s", std::string("Hello"));
+    generic_test("Test float64", "f8", 3.14);
+    generic_test("Test float32", "f4", 3.14);
+    generic_test("Test int8",  "i1", 14);
+    generic_test("Test int16", "i2", 14);
+    generic_test("Test int32", "i4", 14);
+    generic_test("Test int64", "i8", 14);
+    generic_test("Test uint8",  "u1", 14);
+    generic_test("Test uint16", "u2", 14);
+    generic_test("Test uint32", "u4", 14);
+    generic_test("Test uint64", "u8", 14);
+    generic_test("Test string", "s", std::string("Helloooo"));
     // generic_test<>("Test raw binary", "r", std::vector<char>{0x01, 0x02, 0x03});
     generic_test("Test array of integers", "ai4", std::vector<int>{1, 2, 3, 4, 5});
     // generic_test("Test array of floats", "af8", std::vector<double>{1.0, 2.0, 3.0});

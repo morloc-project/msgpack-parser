@@ -77,6 +77,7 @@ void* toAnything(void* dest, const Schema* schema, const Primitive& data) {
 void* toAnything(void* dest, const Schema* schema, const std::string& data) {
     if(dest){
         memcpy(dest, data.c_str(), data.size());
+        return dest;
     }
     return string_data(data.c_str(), data.size());
 }

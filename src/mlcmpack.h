@@ -1235,7 +1235,7 @@ Schema* uint_schema(size_t width) {
       case 8:
         return create_schema_with_params(MORLOC_UINT64, width, 0, NULL, NULL);
       default:
-        perror("Integers may only have widths of 1, 2, 4, or 8 bytes");
+        fprintf(stderr, "Integers may only have widths of 1, 2, 4, or 8 bytes; found %uz", width);
         return NULL;
     }
 }
@@ -1251,7 +1251,7 @@ Schema* sint_schema(size_t width) {
       case 8:
         return create_schema_with_params(MORLOC_SINT64, width, 0, NULL, NULL);
       default:
-        perror("Integers may only have widths of 1, 2, 4, or 8 bytes");
+        fprintf(stderr, "Integers may only have widths of 1, 2, 4, or 8 bytes; found %uz", width);
         return NULL;
     }
 }
@@ -1263,7 +1263,7 @@ Schema* float_schema(size_t width) {
       case 8:
         return create_schema_with_params(MORLOC_FLOAT64, width, 0, NULL, NULL);
       default:
-        perror("Floats may only have widths of 4 or 8 bytes");
+        fprintf(stderr, "Floats may only have widths of 4 or 8 bytes, found %uz\n", width);
         return NULL;
     }
 }
@@ -1370,7 +1370,7 @@ void* float64_data(double x){
   return xptr;
 }
 
-  void* string_data(const char* x, size_t size){
+void* string_data(const char* x, size_t size){
   Array* data = (Array*)malloc(sizeof(Array));
   data->size = size;
   // TODO - only copy if the string data is not already in shared memory
@@ -1606,10 +1606,12 @@ int pack_data(
     size_t array_width;
     size_t element_idx;
     Schema* array_schema;
+    Array* array;
 
     switch(schema->type){
       case MORLOC_STRING:
-        write_to_packet(mlc, packet, packet_ptr, packet_remaining, strlen((char*)mlc));
+        array = (Array*)mlc;
+        write_to_packet(array->data, packet, packet_ptr, packet_remaining, array->size);
         break;
       case MORLOC_ARRAY:
         array_length = ((Array*)mlc)->size;
@@ -1822,7 +1824,7 @@ int parse_bytes(void* mlc, mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t*
     result->data = (char*)malloc(result->size * sizeof(char));
 
     size_t str_idx = 0;
-    while(result->size - str_idx > 0){
+    while((result->size - str_idx) > 0){
         mpack_read(tokbuf, buf_ptr, buf_remaining, token);
         memcpy(
           (char*)result->data + str_idx,
