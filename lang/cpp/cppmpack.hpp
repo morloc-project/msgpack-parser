@@ -73,15 +73,6 @@ void* toAnything(void* dest, const Schema* schema, const Primitive& data) {
     return NULL;
 }
 
-// Specialization for const char*
-void* toAnything(void* dest, const Schema* schema, const std::string& data) {
-    if(dest){
-        memcpy(dest, data.c_str(), data.size());
-        return dest;
-    }
-    return string_data(data.c_str(), data.size());
-}
-
 // Specialization for std::vector (array)
 template<typename T>
 void* toAnything(void* dest, const Schema* schema, const std::vector<T>& data) {
@@ -93,6 +84,18 @@ void* toAnything(void* dest, const Schema* schema, const std::vector<T>& data) {
     }
 
     return (void*)result;
+}
+
+// Specialization for string
+void* toAnything(void* dest, const Schema* schema, const std::string& data) {
+    // Create a vector<uint8_t> from the string's data without copying
+    std::vector<uint8_t> vec(
+        reinterpret_cast<const uint8_t*>(data.data()),
+        reinterpret_cast<const uint8_t*>(data.data() + data.size())
+    );
+
+    // Move the vector into the function call
+    return toAnything(dest, schema, std::move(vec));
 }
 
 // Specialization for std::tuple

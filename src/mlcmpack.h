@@ -1167,7 +1167,13 @@ Schema* float_schema(size_t width) {
 }
 
 Schema* string_schema() {
-    return create_schema_with_params(MORLOC_STRING, sizeof(Array), 0, NULL, NULL);
+    Schema** params = (Schema**)malloc(sizeof(Schema*));
+    if (!params) return NULL;
+
+    // This parameter is needed for compatibility with arrays
+    params[0] = uint_schema(1);
+
+    return create_schema_with_params(MORLOC_STRING, sizeof(Array), 0, params, NULL);
 }
 
 Schema* tuple_schema(Schema** params, size_t size) {
@@ -1501,11 +1507,9 @@ int pack_data(
             array = (Array*)mlc;
             token = mpack_pack_array(array->size);
             break;
+        case MORLOC_MAP:
         case MORLOC_TUPLE:
             token = mpack_pack_array(schema->size);
-            break;
-        case MORLOC_MAP:
-            token = mpack_pack_map(schema->size);
             break;
         default:
             fprintf(stderr, "Unexpected morloc type\n");
@@ -1539,6 +1543,7 @@ int pack_data(
             );
         }
         break;
+      case MORLOC_MAP:
       case MORLOC_TUPLE:
         // tuples are unboxed data
         // each element in the tuple is represented by element->width bytes
@@ -1552,29 +1557,6 @@ int pack_data(
               packet_remaining,
               tokbuf
             );
-            // move the index to the location after the current element
-            element_idx += schema->parameters[i]->width;
-        }
-        break;
-      case MORLOC_MAP:
-        // map memory representation is equivalent to tuples
-        // the keys exist only in the schema
-        element_idx = 0;
-        for (size_t i = 0; i < schema->size; i++) {
-
-            char* key = schema->keys[i];
-            size_t key_len = strlen(key);
-
-            // write key string token
-            token = mpack_pack_str(key_len);
-            dynamic_mpack_write(tokbuf, packet, packet_ptr, packet_remaining, &token, 8);
-
-            // write string bytes
-            write_to_packet((void*)key, packet, packet_ptr, packet_remaining, key_len);
-
-            // write value
-            pack_data((char*)mlc + element_idx, schema->parameters[i], packet, packet_ptr, packet_remaining, tokbuf);
-
             // move the index to the location after the current element
             element_idx += schema->parameters[i]->width;
         }
@@ -1794,24 +1776,6 @@ int parse_tuple(void* mlc, const Schema* schema, mpack_tokbuf_t* tokbuf, const c
     return 0;
 }
 
-int parse_map(void* mlc, const Schema* schema, mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token){
-    int exitcode = 0;
-    size_t offset = 0;
-    mpack_read(tokbuf, buf_ptr, buf_remaining, token);
-    char* key;
-
-    for(size_t i = 0; i < schema->size; i++){
-        key = parse_key(tokbuf, buf_ptr, buf_remaining, token);;
-        exitcode = parse_obj((char*)mlc + offset, schema->parameters[i], tokbuf, buf_ptr, buf_remaining, token);
-        if(exitcode != 0){
-          return exitcode;
-        }
-        offset += schema->parameters[i]->width;
-    }
-
-    return 0;
-}
-
 int parse_obj(void* mlc, const Schema* schema, mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token){
     switch(schema->type){
       case MORLOC_NIL:
@@ -1835,7 +1799,6 @@ int parse_obj(void* mlc, const Schema* schema, mpack_tokbuf_t* tokbuf, const cha
       case MORLOC_ARRAY:
         return parse_array(mlc, schema->parameters[0], tokbuf, buf_ptr, buf_remaining, token);
       case MORLOC_MAP:
-        return parse_map(mlc, schema, tokbuf, buf_ptr, buf_remaining, token);
       case MORLOC_TUPLE:
         return parse_tuple(mlc, schema, tokbuf, buf_ptr, buf_remaining, token);
       default:
