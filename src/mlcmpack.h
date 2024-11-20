@@ -11,6 +11,7 @@
 #include <limits.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <string.h>
 
 #ifdef __GNUC__
 # define FPURE __attribute__((const))
@@ -86,38 +87,19 @@ MPACK_API mpack_token_t mpack_pack_nil(void) FUNUSED FPURE;
 MPACK_API mpack_token_t mpack_pack_boolean(unsigned v) FUNUSED FPURE;
 MPACK_API mpack_token_t mpack_pack_uint(uint64_t v) FUNUSED FPURE;
 MPACK_API mpack_token_t mpack_pack_sint(int64_t v) FUNUSED FPURE;
-MPACK_API mpack_token_t mpack_pack_float_compat(double v) FUNUSED FPURE;
-MPACK_API mpack_token_t mpack_pack_float_fast(double v) FUNUSED FPURE;
+MPACK_API mpack_token_t mpack_pack_float(double v) FUNUSED FPURE;
 MPACK_API mpack_token_t mpack_pack_number(double v) FUNUSED FPURE;
-MPACK_API mpack_token_t mpack_pack_chunk(const char *p, uint32_t l)
-  FUNUSED FPURE FNONULL;
+MPACK_API mpack_token_t mpack_pack_chunk(const char *p, uint32_t l) FUNUSED FPURE FNONULL;
 MPACK_API mpack_token_t mpack_pack_str(uint32_t l) FUNUSED FPURE;
 MPACK_API mpack_token_t mpack_pack_bin(uint32_t l) FUNUSED FPURE;
-MPACK_API mpack_token_t mpack_pack_ext(int type, uint32_t l)
-  FUNUSED FPURE;
+MPACK_API mpack_token_t mpack_pack_ext(int type, uint32_t l) FUNUSED FPURE;
 MPACK_API mpack_token_t mpack_pack_array(uint32_t l) FUNUSED FPURE;
 MPACK_API mpack_token_t mpack_pack_map(uint32_t l) FUNUSED FPURE;
 MPACK_API bool mpack_unpack_boolean(mpack_token_t t) FUNUSED FPURE;
 MPACK_API uint64_t mpack_unpack_uint(mpack_token_t t) FUNUSED FPURE;
 MPACK_API int64_t mpack_unpack_sint(mpack_token_t t) FUNUSED FPURE;
-MPACK_API double mpack_unpack_float_fast(mpack_token_t t) FUNUSED FPURE;
-MPACK_API double mpack_unpack_float_compat(mpack_token_t t) FUNUSED FPURE;
+MPACK_API double mpack_unpack_float(mpack_token_t t) FUNUSED FPURE;
 MPACK_API double mpack_unpack_number(mpack_token_t t) FUNUSED FPURE;
-
-/* The mpack_{pack,unpack}_float_fast functions should work in 99% of the
- * platforms. When compiling for a platform where floats don't use ieee754 as
- * the internal format, pass
- * -Dmpack_{pack,unpack}_float=mpack_{pack,unpack}_float_compat to the
- *  compiler.*/
-#ifndef mpack_pack_float
-# define mpack_pack_float mpack_pack_float_fast
-#endif
-#ifndef mpack_unpack_float
-# define mpack_unpack_float mpack_unpack_float_fast
-#endif
-
-#include <string.h>
-
 
 #define UNUSED(p) (void)p;
 #define ADVANCE(buf, buflen) ((*buflen)--, (unsigned char)*((*buf)++))
@@ -701,7 +683,7 @@ static double mpack_fmod_pow2_32(double a);
 
 #define MPACK_SWAP_VALUE(val)                                  \
   do {                                                         \
-    uint32_t lo = val.lo;                                \
+    uint32_t lo = val.lo;                                      \
     val.lo = val.hi;                                           \
     val.hi = lo;                                               \
   } while (0)
@@ -757,25 +739,7 @@ MPACK_API mpack_token_t mpack_pack_int32(int v){
   return rv;
 }
 
-MPACK_API mpack_token_t mpack_pack_float_compat(double v)
-{
-  /* ieee754 single-precision limits to determine if "v" can be fully
-   * represented in 4 bytes */
-  mpack_token_t rv;
-
-  if (mpack_fits_single(v)) {
-    rv.length = 4;
-    rv.data.value = mpack_pack_ieee754(v, 23, 8);
-  } else {
-    rv.length = 8;
-    rv.data.value = mpack_pack_ieee754(v, 52, 11);
-  }
-
-  rv.type = MPACK_TOKEN_FLOAT;
-  return rv;
-}
-
-MPACK_API mpack_token_t mpack_pack_float_fast(double v)
+MPACK_API mpack_token_t mpack_pack_float(double v)
 {
   /* ieee754 single-precision limits to determine if "v" can be fully
    * represented in 4 bytes */
@@ -902,11 +866,6 @@ MPACK_API uint64_t mpack_unpack_uint(mpack_token_t t)
   return (((uint64_t)t.data.value.hi << 31) << 1) | t.data.value.lo;
 }
 
-MPACK_API int mpack_unpack_uint32(mpack_token_t t)
-{
-  return (int) t.data.value.lo;
-}
-
 /* unpack signed integer without relying on two's complement as internal
  * representation */
 MPACK_API int64_t mpack_unpack_sint(mpack_token_t t)
@@ -918,9 +877,7 @@ MPACK_API int64_t mpack_unpack_sint(mpack_token_t t)
   // The problem has probably gone undetected because asserts disappear with -O
   /* assert(t.length <= sizeof(int64_t)); */
 
-  if (t.length == 8) {
-    rv |= (((uint64_t)hi) << 31) << 1;
-  }
+  rv |= (((uint64_t)hi) << 31) << 1;
 
   /* reverse the two's complement so that lo/hi contain the absolute value.
    * note that we have to mask ~rv so that it reflects the two's complement
@@ -931,54 +888,15 @@ MPACK_API int64_t mpack_unpack_sint(mpack_token_t t)
   return -((int64_t)(rv - 1)) - 1;
 }
 
-MPACK_API int mpack_unpack_sint32(mpack_token_t t)
-{
-  int rv = (int)t.data.value.lo;
-  rv = ~rv + 1;
-  return -(rv - 1) - 1;
-}
+// MPACK_API int mpack_unpack_sint32(mpack_token_t t)
+// {
+//   int rv = (int)t.data.value.lo;
+//   rv = ~rv + 1;
+//   return -(rv - 1) - 1;
+// }
 
 
-MPACK_API double mpack_unpack_float_compat(mpack_token_t t)
-{
-  uint32_t sign;
-  int32_t exponent, bias;
-  unsigned mantbits;
-  unsigned expbits;
-  double mant;
-
-  if (t.data.value.lo == 0 && t.data.value.hi == 0)
-    /* nothing to do */
-    return 0;
-
-  if (t.length == 4) mantbits = 23, expbits = 8;
-  else mantbits = 52, expbits = 11;
-  bias = (1 << (expbits - 1)) - 1;
-
-  /* restore sign/exponent/mantissa */
-  if (mantbits == 52) {
-    sign = t.data.value.hi >> 31;
-    exponent = (t.data.value.hi >> 20) & ((1 << 11) - 1);
-    mant = (t.data.value.hi & ((1 << 20) - 1)) * POW2(32);
-    mant += t.data.value.lo;
-  } else {
-    sign = t.data.value.lo >> 31;
-    exponent = (t.data.value.lo >> 23) & ((1 << 8) - 1);
-    mant = t.data.value.lo & ((1 << 23) - 1);
-  }
-
-  mant /= POW2(mantbits);
-  if (exponent) mant += 1.0; /* restore leading 1 */
-  else exponent = 1; /* subnormal */
-  exponent -= bias;
-
-  /* restore original value */
-  while (exponent > 0) mant *= 2.0, exponent--;
-  while (exponent < 0) mant /= 2.0, exponent++;
-  return mant * (sign ? -1 : 1);
-}
-
-MPACK_API double mpack_unpack_float_fast(mpack_token_t t)
+MPACK_API double mpack_unpack_float(mpack_token_t t)
 {
   if (t.length == 4) {
     union {
@@ -1546,20 +1464,32 @@ int pack_data(
             token = mpack_pack_boolean(*(int8_t*)mlc != 0);
             break;
         case MORLOC_UINT8:
+            token = mpack_pack_uint((uint64_t)*(uint8_t*)mlc);
+            break;
         case MORLOC_UINT16:
+            token = mpack_pack_uint((uint64_t)*(uint16_t*)mlc);
+            break;
         case MORLOC_UINT32:
-        case MORLOC_SINT8:
-        case MORLOC_SINT16:
-        case MORLOC_SINT32:
-            token = mpack_pack_int32(*(int32_t*)mlc);
+            token = mpack_pack_uint((uint64_t)*(uint32_t*)mlc);
             break;
         case MORLOC_UINT64:
+            token = mpack_pack_uint(*(uint64_t*)mlc);
+            break;
+        case MORLOC_SINT8:
+            token = mpack_pack_sint((int64_t)*(int8_t*)mlc);
+            break;
+        case MORLOC_SINT16:
+            token = mpack_pack_sint((int64_t)*(int16_t*)mlc);
+            break;
+        case MORLOC_SINT32:
+            token = mpack_pack_sint((int64_t)*(int32_t*)mlc);
+            break;
         case MORLOC_SINT64:
-            // TODO: fix the bug in 64 bit handling in the mpack library
-            perror("Not yet supported");
-            return 1;
+            token = mpack_pack_sint(*(int64_t*)mlc);
             break;
         case MORLOC_FLOAT32:
+            token = mpack_pack_float((float)*(double*)mlc);
+            break;
         case MORLOC_FLOAT64:
             token = mpack_pack_float(*(double*)mlc);
             break;
@@ -1714,23 +1644,34 @@ int parse_bool(void* mlc, mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* 
 }
 
 int parse_int(int schema_type, void* mlc, mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token){
-    int64_t result;
+
+    uint8_t result_u8;
+    uint16_t result_u16;
+    uint32_t result_u32;
+    uint64_t result_u64;
+    int8_t result_i8;
+    int16_t result_i16;
+    int32_t result_i32;
+    int64_t result_i64;
+
     mpack_read(tokbuf, buf_ptr, buf_remaining, token);
     switch(token->type){
       case MPACK_TOKEN_UINT:
         switch(schema_type){
           case MORLOC_UINT8:
-            result = (uint8_t)mpack_unpack_uint32(*token);
+            result_u8 = (uint8_t)mpack_unpack_uint(*token);
+            memcpy(mlc, &result_u8, sizeof(uint8_t));
             break;
           case MORLOC_UINT16:
-            result = (uint16_t)mpack_unpack_uint32(*token);
+            result_u16 = (uint16_t)mpack_unpack_uint(*token);
+            memcpy(mlc, &result_u16, sizeof(uint16_t));
             break;
           case MORLOC_UINT32:
-            result = (uint32_t)mpack_unpack_uint32(*token);
-            break;
+            result_u32 = (uint32_t)mpack_unpack_uint(*token);
+            memcpy(mlc, &result_u32, sizeof(uint32_t));
           case MORLOC_UINT64:
-            result = (uint64_t)mpack_unpack_uint32(*token);
-            break;
+            result_u64 = (uint64_t)mpack_unpack_uint(*token);
+            memcpy(mlc, &result_u64, sizeof(uint64_t));
           default:
             break;
         }
@@ -1738,17 +1679,19 @@ int parse_int(int schema_type, void* mlc, mpack_tokbuf_t* tokbuf, const char** b
       case MPACK_TOKEN_SINT:
         switch(schema_type){
           case MORLOC_SINT8:
-            result = (int8_t)mpack_unpack_uint32(*token);
+            result_i8 = (int8_t)mpack_unpack_sint(*token);
+            memcpy(mlc, &result_i8, sizeof(int8_t));
             break;
           case MORLOC_SINT16:
-            result = (int16_t)mpack_unpack_uint32(*token);
+            result_i16 = (int16_t)mpack_unpack_sint(*token);
+            memcpy(mlc, &result_i16, sizeof(int16_t));
             break;
           case MORLOC_SINT32:
-            result = (int32_t)mpack_unpack_uint32(*token);
-            break;
+            result_i32 = (int32_t)mpack_unpack_sint(*token);
+            memcpy(mlc, &result_i32, sizeof(int32_t));
           case MORLOC_SINT64:
-            result = (int64_t)mpack_unpack_uint32(*token);
-            break;
+            result_i64 = (int64_t)mpack_unpack_sint(*token);
+            memcpy(mlc, &result_i64, sizeof(int64_t));
           default:
             break;
         }
@@ -1757,7 +1700,6 @@ int parse_int(int schema_type, void* mlc, mpack_tokbuf_t* tokbuf, const char** b
         fprintf(stderr, "Bad token %d\n", token->type);
         return 1;
     }
-    memcpy(mlc, &result, sizeof(int64_t));
     return 0;
 }
 
