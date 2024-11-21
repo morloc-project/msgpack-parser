@@ -146,17 +146,23 @@ int main() {
     generic_test("Test array of arrays of int32", "aai4", std::vector<std::vector<int32_t>>{std::vector<int32_t>{99,-42}, std::vector<int32_t>{12,-4}});
 
     generic_test("Test tuple of int and array of floats", "t2i4af8", std::make_tuple(42, std::vector<double>{1.1, 2.2, 3.3}));
-    generic_test("Test tuple 1a", "t2au2au1", std::make_tuple(std::vector<uint16_t>{1,300,3}, std::vector<uint8_t>{1,2,3}));
-    generic_test("Test tuple 1b", "t3au2au1au2", std::make_tuple(std::vector<uint16_t>{1,300,3}, std::vector<uint8_t>{1,2,3}, std::vector<uint16_t>{1,300,3}));
-    generic_test("Test tuple 2a", "t4bi4f8au1", std::make_tuple(true, 44, 42.7, std::vector<uint8_t>{1,2,3}));
-    generic_test("Test tuple 2b", "t4i4bf8au1", std::make_tuple(44, true, 42.7, std::vector<uint8_t>{1,2,3}));
-    generic_test("Test tuple 2c", "t4i4f8au1b", std::make_tuple(44, 42.7, std::vector<uint8_t>{1,2,3}, true));
-    generic_test("Test tuple 3a", "t3au2au1b", std::make_tuple(std::vector<uint16_t>{1,2,3}, std::vector<uint8_t>{1,2,3,4,5}, true));
-    generic_test("Test tuple 3b", "t3au2bau1", std::make_tuple(std::vector<uint16_t>{1,2,3}, true, std::vector<uint8_t>{1,2,3,4,5}));
-    generic_test("Test tuple 3c", "t3bau2au1", std::make_tuple(true, std::vector<uint16_t>{1,2,3}, std::vector<uint8_t>{1,2,3,4,5}));
+    generic_test("tuple 1a", "t2au2au1", std::make_tuple(std::vector<uint16_t>{1,300,3}, std::vector<uint8_t>{1,2,3}));
+    generic_test("tuple 1b", "t3au2au1au2", std::make_tuple(std::vector<uint16_t>{1,300,3}, std::vector<uint8_t>{1,2,3}, std::vector<uint16_t>{1,300,3}));
+    generic_test("tuple 2a", "t4bi4f8au1", std::make_tuple(true, 44, 42.7, std::vector<uint8_t>{1,2,3}));
+    generic_test("tuple 2b", "t4i4bf8au1", std::make_tuple(44, true, 42.7, std::vector<uint8_t>{1,2,3}));
+    generic_test("tuple 2c", "t4i4f8au1b", std::make_tuple(44, 42.7, std::vector<uint8_t>{1,2,3}, true));
+    generic_test("tuple 3a", "t3au2au1b", std::make_tuple(std::vector<uint16_t>{1,2,3}, std::vector<uint8_t>{1,2,3,4,5}, true));
+    generic_test("tuple 3b", "t3au2bau1", std::make_tuple(std::vector<uint16_t>{1,2,3}, true, std::vector<uint8_t>{1,2,3,4,5}));
+    generic_test("tuple 3c", "t3bau2au1", std::make_tuple(true, std::vector<uint16_t>{1,2,3}, std::vector<uint8_t>{1,2,3,4,5}));
 
-    generic_test("Test tuple weighted", "t4i4bf8s", std::make_tuple(44, true, 42.7, "Bob"));
-    generic_test("Test tuple weighted", "t3su4u4", std::make_tuple("Bob", (uint32_t)42, (uint32_t)56));
+    generic_test("tuple 4a", "t2bs", std::make_tuple(true, "Bob"));
+    generic_test("tuple 4b", "t2sb", std::make_tuple("Bob", true));
+    generic_test("tuple 4c", "t2u4s", std::make_tuple((uint32_t)42, "Bob"));
+    generic_test("tuple 4d", "t2su4", std::make_tuple("Bob", (uint32_t)42));
+    generic_test("tuple 4e", "t4i4bf8s", std::make_tuple(44, true, 42.7, "Bob"));
+    generic_test("tuple 4f", "t3su4u4", std::make_tuple("Bob", (uint32_t)42, (uint32_t)56));
+
+    generic_test("tuple 5", "at2abb", std::vector<std::tuple<std::vector<bool>,bool>>{std::make_tuple(std::vector<bool>{true, false}, true)});
 
     generic_test("Test Alice", "m24names3ageu4", alice);
     generic_test("Test Bob weighted", "m34names3ageu46weightu4", bob);

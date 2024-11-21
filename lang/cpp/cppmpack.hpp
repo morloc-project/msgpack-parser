@@ -7,6 +7,7 @@
 #include <cstring>
 #include <iostream>
 #include <string>
+#include <cstring>
 
 #include "mlcmpack.h"
 
@@ -69,6 +70,16 @@ void* toAnything(void* dest, const Schema* schema, const std::string& data) {
     std::vector<uint8_t> vec(
         reinterpret_cast<const uint8_t*>(data.data()),
         reinterpret_cast<const uint8_t*>(data.data() + data.size())
+    );
+
+    // Move the vector into the function call
+    return toAnything(dest, schema, std::move(vec));
+}
+
+void* toAnything(void* dest, const Schema* schema, const char* data) {
+    std::vector<uint8_t> vec(
+        reinterpret_cast<const uint8_t*>(data),
+        reinterpret_cast<const uint8_t*>(data) + strlen(data)
     );
 
     // Move the vector into the function call
