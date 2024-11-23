@@ -144,17 +144,31 @@ for description, schema, data in test_cases:
     start_time = time.time()
 
     try:
-        msgpack_data = mp.pack(data, schema)
+        voidstar = mp.to_voidstar(data, schema)
     except Exception as e:
-        print(f"{description:<{max_width}} {Fore.RED}fail{Style.RESET_ALL}")
+        print(f"{description:<{max_width}} {Fore.RED}fail to void{Style.RESET_ALL}")
         print(f"Error in pack: {e}")
         continue
 
     try:
-        result = mp.unpack(msgpack_data, schema)
+        msgpack_data = mp.to_msgpack(data, schema)
     except Exception as e:
-        print(f"{description:<{max_width}} {Fore.RED}fail{Style.RESET_ALL}")
+        print(f"{description:<{max_width}} {Fore.RED}fail to msgpack {Style.RESET_ALL}")
+        print(f"Error in pack: {e}")
+        continue
+
+    try:
+        result = mp.from_msgpack(msgpack_data, schema)
+    except Exception as e:
+        print(f"{description:<{max_width}} {Fore.RED}fail from msgpack{Style.RESET_ALL}")
         print(f"Error in unpack: {e}")
+        continue
+
+    try:
+        result = mp.from_voidstar(data, schema)
+    except Exception as e:
+        print(f"{description:<{max_width}} {Fore.RED}fail from void{Style.RESET_ALL}")
+        print(f"Error in pack: {e}")
         continue
 
     end_time = time.time()
