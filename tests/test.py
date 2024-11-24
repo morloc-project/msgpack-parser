@@ -70,7 +70,7 @@ big_schema_dict = {
     "boolean": "b",
     "integer": "i4",
     "float": "f8",
-    "binary": "ai1",
+    "binary": "au1",
     "string": "s",
     "array": "ai4",
     "nested_map": "m21ai41bi4",
@@ -99,34 +99,34 @@ test_cases = [
     ("Large string", "s", "x" * 1000000),
     ("Boolean true", "b", True),
     ("Boolean false", "b", False),
-
+    
     ("u1", "u1", 10),
     ("u2", "u2", 10000),
     ("u4", "u4", 1000000),
     ("u8", "u8", 10000000),
-
+    
     ("Negative i1", "i1", -10),
     ("Negative i2", "i2", -10000),
     ("Negative i4", "i4", -1000000),
     ("Negative i8", "i8", -10000000),
-
+    
     ("Positive i1", "i1", 10),
     ("Positive i2", "i2", 10000),
     ("Positive i4", "i4", 1000000),
     ("Positive i8", "i8", 10000000),
-
+    
     ("Positive float", "f8", 6.9420),
     ("Positive float from int", "f8", 6),
     ("Negative float", "f8", -6.9420),
-    ("Empty binary", "ai1", b''),
-    ("Binary with prefix", "ai1", b'\x00susan'),
-    ("Large binary", "ai1", b'x' * 1000000),
+    ("Empty binary", "au1", b''),
+    ("Binary with prefix", "au1", b'\x00susan'),
+    ("Large binary", "au1", b'x' * 1000000),
 
     ("Empty boolean array", "ab", []),
     ("Single boolean array", "ab", [True]),
     ("Small boolean array", "ab", [True, False] * 2),
     ("Large boolean array", "ab", [True, False] * 10000),
-
+    
     ("Empty integer array", "ai4", []),
     ("Single integer array", "ai4", list(range(1))),
     ("Special ints", "ai4", [-129, -32769]), # yes, these specific integers failed
@@ -134,20 +134,20 @@ test_cases = [
     ("Small integer array with negatives", "ai4", list(range(10)) + [-1 * i for i in range(10)]),
     ("Large integer array with negatives", "ai4", list(range(500000)) + [-1 * i for i in range(500000)] + []),
     ("Large integer array of positives", "ai4", list(range(1000000))),
-
+    
     ("Empty float array", "af8", []),
     ("Single float array", "af8", [float(1)]),
     ("Single float array", "af8", [-3-2,-1,0,1,2,3]),
     ("Large float array with negatives", "af8", [float(x) for x in list(range(10000)) + [-1 * i for i in range(10000)]]),
     ("Very large float array", "af8", [float(x) for x in range(1000000)]),
-
+    
     ("String array with increasing size strings", "as", ["x" * i for i in range(5000)]),
     ("String array with repeated elements (small)", "as", ["as44" for _ in range(10000)]),
     ("String array with repeated elements (large)", "as", ["as44" for _ in range(100000)]),
-
+    
     ("Tuple with bool and int", "t2bi4", (False, 42069)),
     ("Map with bool and int keys", "m21ab1bi4", {"a": True, "b": 42}),
-
+    
     ("Complex nested structure", big_schema, big_data),
     ("map", map_schema, map_data),
     ("nested tuples", "at2si4", [("Alice",42), ("Bob",40)]),

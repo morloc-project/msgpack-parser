@@ -115,16 +115,23 @@ PyObject* fromAnything(const Schema* schema, const void* data){
         }
         case MORLOC_ARRAY: {
             Array* array = (Array*)data;
-            obj = PyList_New(array->size);
-            if (!obj) goto error;
-            char* element_ptr = (char*)array->data;
-            for (size_t i = 0; i < array->size; i++) {
-                PyObject* item = fromAnything(schema->parameters[0], element_ptr);
-                if (!item || PyList_SetItem(obj, i, item) < 0) {
-                    Py_XDECREF(item);
-                    goto error;
+            if (schema->parameters[0]->type == MORLOC_UINT8) {
+                // Create a Python bytes object for UINT8 arrays
+                obj = PyBytes_FromStringAndSize((const char*)array->data, array->size);
+                if (!obj) goto error;
+            } else {
+                // For other types, create a list as before
+                obj = PyList_New(array->size);
+                if (!obj) goto error;
+                char* element_ptr = (char*)array->data;
+                for (size_t i = 0; i < array->size; i++) {
+                    PyObject* item = fromAnything(schema->parameters[0], element_ptr);
+                    if (!item || PyList_SetItem(obj, i, item) < 0) {
+                        Py_XDECREF(item);
+                        goto error;
+                    }
+                    element_ptr += schema->parameters[0]->width;
                 }
-                element_ptr += schema->parameters[0]->width;
             }
             break;
         }
@@ -309,11 +316,11 @@ void* toAnything(void* dest, Schema* schema, PyObject* obj) {
 
         case MORLOC_STRING:
         case MORLOC_ARRAY:
-            if (schema->type == MORLOC_STRING && !PyUnicode_Check(obj) && !PyBytes_Check(obj)) {
+            if (schema->type == MORLOC_STRING && !(PyUnicode_Check(obj) || PyBytes_Check(obj))) {
                 PyErr_Format(PyExc_TypeError, "Expected str or bytes for MORLOC_STRING, but got %s", Py_TYPE(obj)->tp_name);
                 goto error;
             }
-            if (schema->type == MORLOC_ARRAY && !PyList_Check(obj)) {
+            if (schema->type == MORLOC_ARRAY && !(PyList_Check(obj) || PyBytes_Check(obj))) {
                 PyErr_Format(PyExc_TypeError, "Expected list for MORLOC_ARRAY, but got %s", Py_TYPE(obj)->tp_name);
                 goto error;
             }
