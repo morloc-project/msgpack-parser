@@ -296,21 +296,18 @@ void* toAnything(void* dest, Schema* schema, PyObject* obj) {
                 PyErr_Format(PyExc_TypeError, "Expected float for MORLOC_FLOAT32, but got %s", Py_TYPE(obj)->tp_name);
                 goto error;
             }
-            {
-                double double_value = PyFloat_AsDouble(obj);
-                float float_value = (float)double_value;
-                memcpy(dest, &float_value, sizeof(float));
-            }
+            *((float*)dest) = (float)PyFloat_AsDouble(obj);
             break;
 
         case MORLOC_FLOAT64:
-            if (!PyFloat_Check(obj)) {
-                PyErr_Format(PyExc_TypeError, "Expected float for MORLOC_FLOAT64, but got %s", Py_TYPE(obj)->tp_name);
-                goto error;
-            }
+            if(PyFloat_Check(obj))
             {
-                double double_value = PyFloat_AsDouble(obj);
-                memcpy(dest, &double_value, sizeof(double));
+                *((double*)dest) = PyFloat_AsDouble(obj);
+            } else if(PyLong_Check(obj)){
+                *((double*)dest) = (double)PyLong_AsLongLong(obj);
+            } else {
+                PyErr_Format(PyExc_TypeError, "Expected float or int for MORLOC_FLOAT64, but got %s", Py_TYPE(obj)->tp_name);
+                goto error;
             }
             break;
 
