@@ -11,6 +11,7 @@ static PyObject* to_msgpack(PyObject* self, PyObject* args) {
     size_t msgpck_data_len = 0; 
 
     if (!PyArg_ParseTuple(args, "Os", &voidstar_capsule, &schema)) {
+        PyErr_SetString(PyExc_TypeError, "Failed to parse arguments");
         return NULL;
     }
 
@@ -21,7 +22,7 @@ static PyObject* to_msgpack(PyObject* self, PyObject* args) {
     }
 
     int exitcode = pack(voidstar, schema, &msgpck_data, &msgpck_data_len);
-    if (exitcode != 0) {
+    if (exitcode != 0 || !msgpck_data) {
         PyErr_SetString(PyExc_RuntimeError, "Packing failed");
         return NULL;
     }
@@ -123,7 +124,7 @@ PyObject* fromAnything(const Schema* schema, const void* data){
                     Py_XDECREF(item);
                     goto error;
                 }
-                element_ptr += schema->width;
+                element_ptr += schema->parameters[0]->width;
             }
             break;
         }
@@ -162,6 +163,8 @@ PyObject* fromAnything(const Schema* schema, const void* data){
             goto error;
     }
 
+    return obj;
+
 error:
     Py_XDECREF(obj);
     return NULL;
@@ -174,10 +177,12 @@ static PyObject* from_voidstar(PyObject* self, PyObject* args) {
     const char* schema_str; 
 
     if (!PyArg_ParseTuple(args, "Os", &voidstar_capsule, &schema_str)) {
+        PyErr_SetString(PyExc_TypeError, "Failed to parse input");
         return NULL;
     }
 
     void* voidstar = PyCapsule_GetPointer(voidstar_capsule, "VoidStar");
+
     if (voidstar == NULL) {
         PyErr_SetString(PyExc_TypeError, "Invalid voidstar capsule");
         return NULL;
@@ -190,11 +195,46 @@ static PyObject* from_voidstar(PyObject* self, PyObject* args) {
     }
 
     PyObject* obj = fromAnything(schema, voidstar);
+    if (obj == NULL) {
+        PyErr_SetString(PyExc_TypeError, "fromAnything returned NULL");
+        return NULL;
+    }
 
     free_schema(schema);
 
     return obj;
 }
+
+
+
+
+#define HANDLE_SINT_TYPE(CTYPE, PYLONG_FUNC, MIN, MAX) \
+    do { \
+        if (!PyLong_Check(obj)) { \
+            PyErr_Format(PyExc_TypeError, "Expected int for %s, but got %s", #CTYPE, Py_TYPE(obj)->tp_name); \
+            goto error; \
+        } \
+        long long value = PYLONG_FUNC(obj); \
+        if (value < MIN || value > MAX || PyErr_Occurred()) { \
+            PyErr_Format(PyExc_OverflowError, "Integer overflow for %s", #CTYPE); \
+            goto error; \
+        } \
+        *(CTYPE*)dest = (CTYPE)value; \
+    } while(0)
+
+#define HANDLE_UINT_TYPE(CTYPE, PYLONG_FUNC, MAX) \
+    do { \
+        if (!PyLong_Check(obj)) { \
+            PyErr_Format(PyExc_TypeError, "Expected int for %s, but got %s", #CTYPE, Py_TYPE(obj)->tp_name); \
+            goto error; \
+        } \
+        unsigned long long value = PYLONG_FUNC(obj); \
+        if (value > MAX || PyErr_Occurred()) { \
+            PyErr_Format(PyExc_OverflowError, "Integer overflow for %s", #CTYPE); \
+            goto error; \
+        } \
+        *(CTYPE*)dest = (CTYPE)value; \
+    } while(0)
 
 
 void* toAnything(void* dest, Schema* schema, PyObject* obj) {
@@ -220,19 +260,28 @@ void* toAnything(void* dest, Schema* schema, PyObject* obj) {
             break;
 
         case MORLOC_SINT8:
+            HANDLE_SINT_TYPE(int8_t, PyLong_AsLongLong, INT8_MIN, INT8_MAX);
+            break;
         case MORLOC_SINT16:
+            HANDLE_SINT_TYPE(int16_t, PyLong_AsLongLong, INT16_MIN, INT16_MAX);
+            break;
         case MORLOC_SINT32:
+            HANDLE_SINT_TYPE(int32_t, PyLong_AsLongLong, INT32_MIN, INT32_MAX);
+            break;
         case MORLOC_SINT64:
+            HANDLE_SINT_TYPE(int64_t, PyLong_AsLongLong, INT64_MIN, INT64_MAX);
+            break;
         case MORLOC_UINT8:
+            HANDLE_UINT_TYPE(uint8_t, PyLong_AsUnsignedLongLong, UINT8_MAX);
+            break;
         case MORLOC_UINT16:
+            HANDLE_UINT_TYPE(uint16_t, PyLong_AsUnsignedLongLong, UINT16_MAX);
+            break;
         case MORLOC_UINT32:
+            HANDLE_UINT_TYPE(uint32_t, PyLong_AsUnsignedLongLong, UINT32_MAX);
+            break;
         case MORLOC_UINT64:
-            if (!PyLong_Check(obj)) {
-                PyErr_Format(PyExc_TypeError, "Expected int for MORLOC_[U]INT type, but got %s", Py_TYPE(obj)->tp_name);
-                goto error;
-            }
-            long long value = PyLong_AsLongLong(obj);
-            memcpy(dest, &value, schema->width);
+            HANDLE_UINT_TYPE(uint64_t, PyLong_AsUnsignedLongLong, UINT64_MAX);
             break;
 
         case MORLOC_FLOAT32:
@@ -357,6 +406,11 @@ static PyObject* to_voidstar(PyObject* self, PyObject* args){
   Schema* schema = parse_schema(&schema_str);
 
   void* voidstar = toAnything(NULL, schema, obj);
+
+  if(!voidstar){
+      PyErr_SetString(PyExc_TypeError, "toAnything failed");
+      return NULL;
+  }
 
   // Note that there is no destructor. This memory is managed by the custom
   // memory allocator. I will eventually add some means of reference
