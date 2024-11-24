@@ -985,6 +985,21 @@ static double mpack_fmod_pow2_32(double a)
 #include <stdint.h>
 #include <stdarg.h>
 
+// just a debugging function
+void hex(void *ptr, size_t size) {
+    unsigned char *byte_ptr = (unsigned char *)ptr;
+    for (size_t i = 0; i < size; i++) {
+        if(i > 0 && i % 8 == 0){
+          fprintf(stderr, " ");
+        }
+        fprintf(stderr, "%02X", byte_ptr[i]);
+        if (i < size - 1) {
+            fprintf(stderr, " ");
+        }
+    }
+    fprintf(stderr, "\n");
+}
+
 // Forward declarations
 struct Schema;
 
@@ -1574,19 +1589,29 @@ int parse_int(int schema_type, void* mlc, mpack_tokbuf_t* tokbuf, const char** b
       case MPACK_TOKEN_UINT:
         switch(schema_type){
           case MORLOC_UINT8:
-            result_u8 = (uint8_t)mpack_unpack_uint(*token);
-            memcpy(mlc, &result_u8, sizeof(uint8_t));
+            *((uint8_t*)mlc) = (uint8_t)mpack_unpack_uint(*token);
             break;
           case MORLOC_UINT16:
-            result_u16 = (uint16_t)mpack_unpack_uint(*token);
-            memcpy(mlc, &result_u16, sizeof(uint16_t));
+            *((uint16_t*)mlc) = (uint16_t)mpack_unpack_uint(*token);
             break;
           case MORLOC_UINT32:
-            result_u32 = (uint32_t)mpack_unpack_uint(*token);
-            memcpy(mlc, &result_u32, sizeof(uint32_t));
+            *((uint32_t*)mlc) = (uint32_t)mpack_unpack_uint(*token);
+            break;
           case MORLOC_UINT64:
-            result_u64 = (uint64_t)mpack_unpack_uint(*token);
-            memcpy(mlc, &result_u64, sizeof(uint64_t));
+            *((uint64_t*)mlc) = (uint64_t)mpack_unpack_uint(*token);
+            break;
+          case MORLOC_SINT8:
+            *((int8_t*)mlc) = (int8_t)mpack_unpack_uint(*token);
+            break;
+          case MORLOC_SINT16:
+            *((int16_t*)mlc) = (int16_t)mpack_unpack_uint(*token);
+            break;
+          case MORLOC_SINT32:
+            *((int32_t*)mlc) = (int32_t)mpack_unpack_uint(*token);
+            break;
+          case MORLOC_SINT64:
+            *((int64_t*)mlc) = (int64_t)mpack_unpack_uint(*token);
+            break;
           default:
             break;
         }
@@ -1594,19 +1619,17 @@ int parse_int(int schema_type, void* mlc, mpack_tokbuf_t* tokbuf, const char** b
       case MPACK_TOKEN_SINT:
         switch(schema_type){
           case MORLOC_SINT8:
-            result_i8 = (int8_t)mpack_unpack_sint(*token);
-            memcpy(mlc, &result_i8, sizeof(int8_t));
+            *((int8_t*)mlc) = (int8_t)mpack_unpack_sint(*token);
             break;
           case MORLOC_SINT16:
-            result_i16 = (int16_t)mpack_unpack_sint(*token);
-            memcpy(mlc, &result_i16, sizeof(int16_t));
+            *((int16_t*)mlc) = (int16_t)mpack_unpack_sint(*token);
             break;
           case MORLOC_SINT32:
-            result_i32 = (int32_t)mpack_unpack_sint(*token);
-            memcpy(mlc, &result_i32, sizeof(int32_t));
+            *((int32_t*)mlc) = (int32_t)mpack_unpack_sint(*token);
+            break;
           case MORLOC_SINT64:
-            result_i64 = (int64_t)mpack_unpack_sint(*token);
-            memcpy(mlc, &result_i64, sizeof(int64_t));
+            *((int64_t*)mlc) = (int64_t)mpack_unpack_sint(*token);
+            break;
           default:
             break;
         }

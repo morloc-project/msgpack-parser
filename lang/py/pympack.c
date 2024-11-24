@@ -2,7 +2,6 @@
 #include "mlcmpack.h"
 #include "Python.h"
 
-
 // convert voidstar to MessagePack
 static PyObject* to_msgpack(PyObject* self, PyObject* args) {
     PyObject* voidstar_capsule;

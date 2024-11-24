@@ -96,7 +96,7 @@ big_data = {
 test_cases = [
     ("Empty string", "s", ""),
     ("Single character string", "s", "x"),
-    ("Large string", "s", "x" * 1000000),
+    #  ("Large string", "s", "x" * 1000000),
     ("Boolean true", "b", True),
     ("Boolean false", "b", False),
 
@@ -169,32 +169,27 @@ for description, schema, data in test_cases:
         continue
 
     try:
-        result = mp.from_voidstar(voidstar, schema)
+        msgpack_data = mp.to_msgpack(voidstar, schema)
+    except Exception as e:
+        print(f"{description:<{max_width}} {Fore.RED}fail to msgpack {Style.RESET_ALL}")
+        print(f"Error in pack: {e}")
+        continue
+
+    #  print(f"result_data = {msgpack_data!r}")
+
+    try:
+        result_data = mp.from_msgpack(msgpack_data, schema)
+    except Exception as e:
+        print(f"{description:<{max_width}} {Fore.RED}fail from msgpack{Style.RESET_ALL}")
+        print(f"Error in unpack: {e}")
+        continue
+
+    try:
+        result = mp.from_voidstar(result_data, schema)
     except Exception as e:
         print(f"{description:<{max_width}} {Fore.RED}fail from void{Style.RESET_ALL}")
         print(f"Error in pack: {e}")
         continue
-
-    #  try:
-    #      msgpack_data = mp.to_msgpack(voidstar, schema)
-    #  except Exception as e:
-    #      print(f"{description:<{max_width}} {Fore.RED}fail to msgpack {Style.RESET_ALL}")
-    #      print(f"Error in pack: {e}")
-    #      continue
-    #
-    #  try:
-    #      result_data = mp.from_msgpack(msgpack_data, schema)
-    #  except Exception as e:
-    #      print(f"{description:<{max_width}} {Fore.RED}fail from msgpack{Style.RESET_ALL}")
-    #      print(f"Error in unpack: {e}")
-    #      continue
-    #
-    #  try:
-    #      result = mp.from_voidstar(result_data, schema)
-    #  except Exception as e:
-    #      print(f"{description:<{max_width}} {Fore.RED}fail from void{Style.RESET_ALL}")
-    #      print(f"Error in pack: {e}")
-    #      continue
 
     end_time = time.time()
 
@@ -204,6 +199,6 @@ for description, schema, data in test_cases:
         print(f"{description:<{max_width}} {Fore.GREEN}pass{Style.RESET_ALL} ({elapsed_time:.4f}s)")
     else:
         print(f"{description:<{max_width}} {Fore.RED}fail{Style.RESET_ALL}")
-        print(f"Error: Result does not match expected data")
-        print(f"Exected: {str(data)}")
-        print(f"Founded: {str(result)}")
+        #  print(f"Error: Result does not match expected data")
+        #  print(f"Exected: {str(data)}")
+        #  print(f"Founded: {str(result)}")

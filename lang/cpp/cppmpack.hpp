@@ -187,7 +187,9 @@ std::vector<char> mpk_pack(const T& data, const std::string& schema_str) {
     char* msgpack_data = nullptr;
     size_t msg_size = 0;
 
+
     int pack_result = pack(data_obj_1, schema_str.c_str(), &msgpack_data, &msg_size);
+
     if (pack_result != 0) {
         // free_schema(schema);
         throw std::runtime_error("Packing failed");

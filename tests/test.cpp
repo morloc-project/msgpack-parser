@@ -8,6 +8,10 @@ typedef struct Person{
   uint32_t age;
 } Person;
 
+bool operator==(const Person& lhs, const Person& rhs) {
+    return (lhs.name == rhs.name) && (lhs.age == rhs.age);
+}
+
 Person fromAnything(const Schema* schema, const void* anything, Person* dummy = nullptr)
 {
     Person person;
@@ -33,6 +37,10 @@ typedef struct Person2{
   uint32_t age;
   uint32_t weight;
 } Person2;
+
+bool operator==(const Person2& lhs, const Person2& rhs) {
+    return (lhs.name == rhs.name) && (lhs.age == rhs.age) && (lhs.weight == rhs.weight);
+}
 
 
 Person2 fromAnything(const Schema* schema, const void* anything, Person2* dummy = nullptr)
@@ -65,6 +73,11 @@ struct PersonPlus {
     int age;
     T info;
 };
+
+template<typename T>
+bool operator==(const PersonPlus<T>& lhs, const PersonPlus<T>& rhs) {
+    return (lhs.name == rhs.name) && (lhs.age == rhs.age) && (lhs.info == rhs.info);
+}
 
 template<typename T>
 PersonPlus<T> fromAnything(const Schema* schema, const void* anything, PersonPlus<T>* dummy = nullptr)
@@ -100,9 +113,13 @@ void generic_test(const std::string& description, const std::string& schema_str,
     try {
         std::vector<char> msgpack_data = mpk_pack(data, schema_str);
         T data_ret = mpk_unpack<T>(msgpack_data, schema_str);
-        fprintf(stderr, "%s: ... %spass%s\n", description.c_str(), GREEN, RESET);
+        if(data_ret == data){
+            fprintf(stderr, "%s: ... %spass%s\n", description.c_str(), GREEN, RESET);
+        } else {
+            fprintf(stderr, "%s: ... %svalue fail%s\n", description.c_str(), RED, RESET);
+        }
     } catch (const std::exception& e) {
-        fprintf(stderr, "%s: ... %sfail: %s%s\n", description.c_str(), RED, e.what(), RESET);
+        fprintf(stderr, "%s: ... %serror: %s%s\n", description.c_str(), RED, e.what(), RESET);
     }
 }
 
@@ -138,6 +155,8 @@ int main() {
 
     generic_test("Test string", "s", std::string("Helloooo"));
     generic_test("Test raw binary", "au1", std::vector<uint8_t>{0x01, 0x02, 0x03});
+    generic_test("Test null susan", "au1", std::vector<uint8_t>{0x00, 0x00, 0x73, 0x75, 0x73, 0x61, 0x6E});
+
     generic_test("Test array of booleans", "ab", std::vector<bool>{true,false,true});
     generic_test("Test array of integers", "ai4", std::vector<int32_t>{1, 2, 3, 4, 5});
     generic_test("Test array of float", "af4", std::vector<float>{1.0, 2.0, 3.0});
