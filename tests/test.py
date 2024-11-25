@@ -136,6 +136,7 @@ test_cases = [
     ("Test integers", "ai4", generate_test_integers()),
     ("Small integer array with negatives", "ai4", list(range(10)) + [-1 * i for i in range(10)]),
     ("Large integer array with negatives", "ai4", list(range(500000)) + [-1 * i for i in range(500000)] + []),
+    ("Medium integer array of positives", "ai4", list(range(2000))),
     ("Large integer array of positives", "ai4", list(range(1000000))),
 
     ("Empty float array", "af8", []),

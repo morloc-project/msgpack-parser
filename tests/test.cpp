@@ -1,6 +1,58 @@
 #include "cppmpack.hpp"
 #include <tuple>
+#include <vector>
+#include <algorithm>
 
+std::vector<int32_t> generate_integers() {
+    // Maximum and minimum 32-bit signed integers
+    int64_t max_int = 0x000000007FFFFFFF;
+    int64_t min_int = 0xFFFFFFFF80000000;
+
+    // Generate 1024 evenly spaced values, powers of 2, and sums of powers of 2
+    std::vector<int64_t> all_values;
+    for (int64_t i = max_int; i >= min_int; i -= (max_int - min_int) / 1023) {
+        all_values.push_back(i);
+    }
+
+    int64_t current_sum = 0;
+    for (int i = 0; i < 32; ++i) {
+        const int64_t base = static_cast<int64_t>(1 << i);
+        current_sum += base;
+
+        all_values.push_back(base - 1);
+        all_values.push_back(base);
+        all_values.push_back(base + 1);
+        all_values.push_back(-base + 1);
+        all_values.push_back(-base);
+        all_values.push_back(-base - 1);
+
+        all_values.push_back(current_sum - 1);
+        all_values.push_back(current_sum);
+        all_values.push_back(current_sum + 1);
+        all_values.push_back(-current_sum + 1);
+        all_values.push_back(-current_sum);
+        all_values.push_back(-current_sum - 1);
+
+        if (i > 0) {
+            const int64_t intermediate_sum = base + (1 << (i - 1));
+            all_values.push_back(intermediate_sum - 1);
+            all_values.push_back(intermediate_sum);
+            all_values.push_back(intermediate_sum + 1);
+            all_values.push_back(-intermediate_sum + 1);
+            all_values.push_back(-intermediate_sum);
+            all_values.push_back(-intermediate_sum - 1);
+        }
+    }
+
+    // Convert to int32_t and remove values outside the 32-bit range
+    std::vector<int32_t> result;
+    for (int64_t value : all_values) {
+        if (value >= min_int && value <= max_int) {
+            result.push_back(static_cast<int32_t>(value));
+        }
+    }
+    return result;
+}
 
 
 typedef struct Person{
@@ -182,6 +234,8 @@ int main() {
     generic_test("tuple 4f", "t3su4u4", std::make_tuple("Bob", (uint32_t)42, (uint32_t)56));
 
     generic_test("tuple 5", "at2abb", std::vector<std::tuple<std::vector<uint8_t>,uint8_t>>{std::make_tuple(std::vector<uint8_t>{true, false}, true)});
+
+		generic_test("exhaustive edge cases for i32", "ai4", generate_integers());
 
     generic_test("Test Alice", "m24names3ageu4", alice);
     generic_test("Test Bob weighted", "m34names3ageu46weightu4", bob);
