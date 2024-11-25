@@ -1407,7 +1407,7 @@ int pack_data(
             token = mpack_pack_nil();
             break;
         case MORLOC_BOOL:
-            token = mpack_pack_boolean(*(int8_t*)mlc != 0);
+            token = mpack_pack_boolean(*(uint8_t*)mlc != 0);
             break;
         case MORLOC_UINT8:
             token = mpack_pack_uint((uint64_t)*(uint8_t*)mlc);
@@ -1434,7 +1434,7 @@ int pack_data(
             token = mpack_pack_sint(*(int64_t*)mlc);
             break;
         case MORLOC_FLOAT32:
-            token = mpack_pack_float((float)*(double*)mlc);
+            token = mpack_pack_float((double)*(float*)mlc);
             break;
         case MORLOC_FLOAT64:
             token = mpack_pack_float(*(double*)mlc);
@@ -1467,18 +1467,21 @@ int pack_data(
         write_to_packet(array->data, packet, packet_ptr, packet_remaining, array->size);
         break;
       case MORLOC_ARRAY:
-        array_length = ((Array*)mlc)->size;
-        array_schema = schema->parameters[0];
-        array_width = array_schema->width;
-        for (size_t i = 0; i < array_length; i++) {
-            pack_data(
-              (char*)mlc + i * array_width,
-              array_schema,
-              packet,
-              packet_ptr,
-              packet_remaining,
-              tokbuf
-            );
+        {
+          array_length = ((Array*)mlc)->size;
+          char* data = (char*)((Array*)mlc)->data;
+          array_schema = schema->parameters[0];
+          array_width = array_schema->width;
+          for (size_t i = 0; i < array_length; i++) {
+              pack_data(
+                data + i * array_width,
+                array_schema,
+                packet,
+                packet_ptr,
+                packet_remaining,
+                tokbuf
+              );
+          }
         }
         break;
       case MORLOC_MAP:
@@ -1550,8 +1553,8 @@ int pack(const void* mlc, const char* schema_str, char** mpk, size_t* mpk_size) 
 int parse_bool(        void* mlc, mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token);
 int parse_nil(         void* mlc, mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token);
 int parse_bytes(       void* mlc, mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token);
-int parse_int(    int, void* mlc, mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token);
-int parse_float(  int, void* mlc, mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token);
+int parse_int(    morloc_serial_type, void* mlc, mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token);
+int parse_float(  morloc_serial_type, void* mlc, mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token);
 
 // nested parsers
 int parse_array( void* mlc, const Schema* schema, mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token);
@@ -1573,7 +1576,7 @@ int parse_bool(void* mlc, mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* 
     return 0;
 }
 
-int parse_int(int schema_type, void* mlc, mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token){
+int parse_int(morloc_serial_type schema_type, void* mlc, mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token){
 
     uint8_t result_u8;
     uint16_t result_u16;
@@ -1641,14 +1644,12 @@ int parse_int(int schema_type, void* mlc, mpack_tokbuf_t* tokbuf, const char** b
     return 0;
 }
 
-int parse_float(int schema_type, void* mlc, mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token){
+int parse_float(morloc_serial_type schema_type, void* mlc, mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token){
     mpack_read(tokbuf, buf_ptr, buf_remaining, token);
     if(schema_type == MORLOC_FLOAT32){
-      float result = (float)mpack_unpack_float(*token);
-      memcpy(mlc, &result, sizeof(float));
+      *(float*)mlc = (float)mpack_unpack_float(*token);
     } else {
-      double result = (double)mpack_unpack_float(*token);
-      memcpy(mlc, &result, sizeof(double));
+      *(double*)mlc = (double)mpack_unpack_float(*token);
     }
 
     return 0;

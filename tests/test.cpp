@@ -139,9 +139,9 @@ int main() {
     alice2.age = 42;
     alice2.info = 6.9;
 
-    generic_test<bool>("Test boolean", "b", true);
-    generic_test("Test float64", "f8", 3.14);
-    generic_test("Test float32", "f4", 3.14);
+    generic_test<uint8_t>("Test boolean", "b", true);
+    generic_test("Test float64", "f8", (double)3.14);
+    generic_test("Test float32", "f4", (float)3.14);
     generic_test("Test int8",  "i1", (int8_t)14);
     generic_test("Test int16", "i2", (int16_t)14);
     generic_test("Test int32", "i4", (int32_t)14);
@@ -157,11 +157,11 @@ int main() {
     generic_test("Test raw binary", "au1", std::vector<uint8_t>{0x01, 0x02, 0x03});
     generic_test("Test null susan", "au1", std::vector<uint8_t>{0x00, 0x00, 0x73, 0x75, 0x73, 0x61, 0x6E});
 
-    generic_test("Test array of booleans", "ab", std::vector<bool>{true,false,true});
+    generic_test("Test array of booleans", "ab", std::vector<uint8_t>{true,false,true});
     generic_test("Test array of integers", "ai4", std::vector<int32_t>{1, 2, 3, 4, 5});
     generic_test("Test array of float", "af4", std::vector<float>{1.0, 2.0, 3.0});
     generic_test("Test array of doubles", "af8", std::vector<double>{1.0, 2.0, 3.0});
-    generic_test("Test array of arrays of booleans", "aab", std::vector<std::vector<bool>>{std::vector<bool>{true,false,true}, std::vector<bool>{false,true}});
+    generic_test("Test array of arrays of booleans", "aab", std::vector<std::vector<uint8_t>>{std::vector<uint8_t>{true,false,true}, std::vector<uint8_t>{false,true}});
     generic_test("Test array of arrays of int32", "aai4", std::vector<std::vector<int32_t>>{std::vector<int32_t>{99,-42}, std::vector<int32_t>{12,-4}});
 
     generic_test("Test tuple of int and array of floats", "t2i4af8", std::make_tuple(42, std::vector<double>{1.1, 2.2, 3.3}));
@@ -181,7 +181,7 @@ int main() {
     generic_test("tuple 4e", "t4i4bf8s", std::make_tuple(44, true, 42.7, "Bob"));
     generic_test("tuple 4f", "t3su4u4", std::make_tuple("Bob", (uint32_t)42, (uint32_t)56));
 
-    generic_test("tuple 5", "at2abb", std::vector<std::tuple<std::vector<bool>,bool>>{std::make_tuple(std::vector<bool>{true, false}, true)});
+    generic_test("tuple 5", "at2abb", std::vector<std::tuple<std::vector<uint8_t>,uint8_t>>{std::make_tuple(std::vector<uint8_t>{true, false}, true)});
 
     generic_test("Test Alice", "m24names3ageu4", alice);
     generic_test("Test Bob weighted", "m34names3ageu46weightu4", bob);
