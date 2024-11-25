@@ -145,7 +145,7 @@ std::vector<T> fromAnything(const Schema* schema, const void* data, std::vector<
   result.reserve(array->size);
   const Schema* elemental_schema = schema->parameters[0];
   T* elemental_dumby = nullptr;
-  for(size_t i = 0; i < result.size(); i++){
+  for(size_t i = 0; i < array->size; i++){
     result.push_back(fromAnything(elemental_schema, (char*)array->data + i * elemental_schema->width, elemental_dumby));
   }
   return result;
@@ -170,8 +170,8 @@ Tuple fromTupleAnythingHelper(
   std::index_sequence<Is...>,
   Tuple* = nullptr
 ) {
-    return Tuple(fromAnything(schema->parameters[Is], 
-                              (char*)anything + schema->offsets[Is], 
+    return Tuple(fromAnything(schema->parameters[Is],
+                              (char*)anything + schema->offsets[Is],
                               static_cast<std::tuple_element_t<Is, Tuple>*>(nullptr))...);
 }
 

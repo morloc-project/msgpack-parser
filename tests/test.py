@@ -151,6 +151,13 @@ test_cases = [
     ("Tuple with bool and int", "t2bi4", (False, 42069)),
     ("Map with bool and int keys", "m21ab1bi4", {"a": True, "b": 42}),
 
+    ("tuple 4a", "t2bs", (True, "Bob")),
+    ("tuple 4b", "t2sb", ("Bob", True)),
+    ("tuple 4c", "t2u4s", (42, "Bob")),
+    ("tuple 4d", "t2su4", ("Bob", 42)),
+    ("tuple 4e", "t4i4bf8s", (44, True, 42.7, "Bob")),
+    ("tuple 4f", "t3su4u4", ("Bob", 42, 56)),
+
     ("Complex nested structure", big_schema, big_data),
     ("map", map_schema, map_data),
     ("nested tuples", "at2si4", [("Alice",42), ("Bob",40)]),
