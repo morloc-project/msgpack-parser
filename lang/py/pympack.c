@@ -5,9 +5,9 @@
 // convert voidstar to MessagePack
 static PyObject* to_msgpack(PyObject* self, PyObject* args) {
     PyObject* voidstar_capsule;
-    char* schema; 
-    char* msgpck_data = NULL; 
-    size_t msgpck_data_len = 0; 
+    char* schema;
+    char* msgpck_data = NULL;
+    size_t msgpck_data_len = 0;
 
     if (!PyArg_ParseTuple(args, "Os", &voidstar_capsule, &schema)) {
         PyErr_SetString(PyExc_TypeError, "Failed to parse arguments");
@@ -15,12 +15,25 @@ static PyObject* to_msgpack(PyObject* self, PyObject* args) {
     }
 
     void* voidstar = PyCapsule_GetPointer(voidstar_capsule, "VoidStar");
+
+/* fprintf(stderr, "schema: %s\n", schema); */
+/* Array* array = (Array*)voidstar;         */
+/* fprintf(stderr, "voidstar:\n");          */
+/* hex(array->data, array->size * 4);       */
+/* fprintf(stderr, "\n");                   */
+
     if (voidstar == NULL) {
         PyErr_SetString(PyExc_TypeError, "Invalid voidstar capsule");
         return NULL;
     }
 
     int exitcode = pack(voidstar, schema, &msgpck_data, &msgpck_data_len);
+
+/* fprintf(stderr, "msgpck_data:\n");   */
+/* hex(msgpck_data, msgpck_data_len);   */
+/* fprintf(stderr, "\n");               */
+
+
     if (exitcode != 0 || !msgpck_data) {
         PyErr_SetString(PyExc_RuntimeError, "Packing failed");
         return NULL;
@@ -44,9 +57,9 @@ static void voidstar_destructor(PyObject *capsule) {
 
 // convert MessagePack to voidstar
 static PyObject* from_msgpack(PyObject* self, PyObject* args) {
-    const char* msgpck_data; 
-    Py_ssize_t msgpck_data_len; 
-    const char* schema; 
+    const char* msgpck_data;
+    Py_ssize_t msgpck_data_len;
+    const char* schema;
     void* voidstar = NULL;
 
     if (!PyArg_ParseTuple(args, "y#s", &msgpck_data, &msgpck_data_len, &schema)) {
@@ -96,6 +109,7 @@ PyObject* fromAnything(const Schema* schema, const void* data){
             obj = PyLong_FromUnsignedLong(*(uint16_t*)data);
             break;
         case MORLOC_UINT32:
+/* fprintf(stderr, " = %d ", *(uint32_t*)data); */
             obj = PyLong_FromUnsignedLong(*(uint32_t*)data);
             break;
         case MORLOC_UINT64:
@@ -121,16 +135,24 @@ PyObject* fromAnything(const Schema* schema, const void* data){
             } else {
                 // For other types, create a list as before
                 obj = PyList_New(array->size);
+/* fprintf(stderr, "array->size: %zu\n", array->size);                                   */
+/* fprintf(stderr, "schema->parameters[0]->width: %zu\n", schema->parameters[0]->width); */
                 if (!obj) goto error;
-                char* element_ptr = (char*)array->data;
+/* fprintf(stderr, "a\n"); */
+                char* start = (char*)array->data;
+                size_t width = schema->parameters[0]->width;
+                Schema* element_schema = schema->parameters[0];
                 for (size_t i = 0; i < array->size; i++) {
-                    PyObject* item = fromAnything(schema->parameters[0], element_ptr);
+/* hex(start + width * i, 2 * schema->parameters[0]->width); */
+                    PyObject* item = fromAnything(element_schema, start + width * i);
                     if (!item || PyList_SetItem(obj, i, item) < 0) {
+/* fprintf(stderr, "failing on i=%zu\n", i); */
                         Py_XDECREF(item);
                         goto error;
                     }
-                    element_ptr += schema->parameters[0]->width;
+/* fprintf(stderr, "\n"); */
                 }
+/* fprintf(stderr, "done - Python fromAnything\n"); */
             }
             break;
         }
@@ -180,7 +202,7 @@ error:
 // convert voidstar to PyObject
 static PyObject* from_voidstar(PyObject* self, PyObject* args) {
     PyObject* voidstar_capsule;
-    const char* schema_str; 
+    const char* schema_str;
 
     if (!PyArg_ParseTuple(args, "Os", &voidstar_capsule, &schema_str)) {
         PyErr_SetString(PyExc_TypeError, "Failed to parse input");
@@ -324,7 +346,7 @@ void* toAnything(void* dest, Schema* schema, PyObject* obj) {
             {
                 Py_ssize_t size;
                 char* data;
-                
+
                 if (PyList_Check(obj)) {
                     size = PyList_Size(obj);
                 } else if (PyBytes_Check(obj)) {
@@ -335,11 +357,20 @@ void* toAnything(void* dest, Schema* schema, PyObject* obj) {
 
                 Array* result = array_data(dest, schema->parameters[0]->width, size);
 
+
                 if (PyList_Check(obj)) {
-                    for (Py_ssize_t i = 0; i < size; ++i) {
+/* fprintf(stderr, "Py: toAnything array\n"); */
+                    size_t width = schema->parameters[0]->width;
+                    char* start = (char*)result->data;
+                    Schema* element_schema = schema->parameters[0];
+                    for (Py_ssize_t i = 0; i < size; i++) {
+/* fprintf(stderr, "%zu ", i); */
                         PyObject* item = PyList_GetItem(obj, i);
-                        toAnything((char*)result->data + schema->parameters[0]->width * i, schema->parameters[0], item);
+                        toAnything(start + width * i, element_schema, item);
+/* hex(result->data + i * width, width); */
+/* fprintf(stderr, "\n");                */
                     }
+/* fprintf(stderr, "Py: done\n"); */
                 } else {
                     memcpy(result->data, data, size);
                 }
@@ -400,7 +431,7 @@ error:
 // convert PyObject to voidstar
 static PyObject* to_voidstar(PyObject* self, PyObject* args){
   PyObject* obj;
-  const char* schema_str; 
+  const char* schema_str;
 
   if (!PyArg_ParseTuple(args, "Os", &obj, &schema_str)) {
       return NULL;

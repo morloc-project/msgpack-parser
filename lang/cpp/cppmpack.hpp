@@ -184,10 +184,10 @@ std::vector<char> mpk_pack(const T& data, const std::string& schema_str) {
 
     // Create Anything* from schema and data
     void* data_obj_1 = toAnything(NULL, schema, data);
-    char* msgpack_data = nullptr;
+    char* msgpack_data = NULL;
     size_t msg_size = 0;
 
-    int pack_result = pack_with_schema(data_obj_1, schema, &msgpack_data, &msg_size);
+    int pack_result = pack(data_obj_1, schema_str.c_str(), &msgpack_data, &msg_size);
 
     if (pack_result != 0) {
         // free_schema(schema);

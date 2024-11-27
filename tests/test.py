@@ -96,7 +96,7 @@ big_data = {
 test_cases = [
     ("Empty string", "s", ""),
     ("Single character string", "s", "x"),
-    #  ("Large string", "s", "x" * 1000000),
+    ("Large string", "s", "x" * 100000),
     ("Boolean true", "b", True),
     ("Boolean false", "b", False),
 
@@ -136,7 +136,20 @@ test_cases = [
     ("Test integers", "ai4", generate_test_integers()),
     ("Small integer array with negatives", "ai4", list(range(10)) + [-1 * i for i in range(10)]),
     ("Large integer array with negatives", "ai4", list(range(500000)) + [-1 * i for i in range(500000)] + []),
-    ("Medium integer array of positives", "ai4", list(range(2000))),
+
+    ("Medium bool array", "ab", [x % 2 == 0 for x in range(1000000)]),
+    ("Medium string array", "as", [str(x) for x in range(5000)]),
+    ("Medium u1 array", "au1", list(1 for _ in range(1493))),
+    ("Medium u2 array", "au2", list(range(1493))),
+    ("Medium u4 array", "au4", list(range(1500))),
+    ("Medium u8 array", "au8", list(range(1493))),
+    ("Medium i1 array", "ai1", list(1 for _ in range(1493))),
+    ("Medium i2 array", "ai2", list(range(1493))),
+    ("Medium i4 array", "ai4", list(range(1493))),
+    ("Medium i8 array", "ai8", list(range(1493))),
+    ("Medium f4 array", "af4", [float(x) for x in range(100000)]),
+    ("Medium f8 array", "af8", [float(x) for x in range(100000)]),
+
     ("Large integer array of positives", "ai4", list(range(1000000))),
 
     ("Empty float array", "af8", []),
@@ -183,7 +196,8 @@ for description, schema, data in test_cases:
         print(f"Error in pack: {e}")
         continue
 
-    #  print(f"result_data = {msgpack_data!r}")
+    #### This one is certainly wrong
+    #  print(f"result_data = {msgpack_data.hex(' ')}")
 
     try:
         result_data = mp.from_msgpack(msgpack_data, schema)

@@ -54,6 +54,15 @@ std::vector<int32_t> generate_integers() {
     return result;
 }
 
+template <typename T>
+std::vector<T> range(T start, size_t by, size_t n_values){
+  std::vector<T> result;
+  for(size_t i = 0; i < n_values; i++){
+    result.push_back(start + (T)(i * by));
+  }
+  return result;
+}
+
 
 typedef struct Person{
   std::string name;
@@ -166,12 +175,12 @@ void generic_test(const std::string& description, const std::string& schema_str,
         std::vector<char> msgpack_data = mpk_pack(data, schema_str);
         T data_ret = mpk_unpack<T>(msgpack_data, schema_str);
         if(data_ret == data){
-            fprintf(stderr, "%s: ... %spass%s\n", description.c_str(), GREEN, RESET);
+            printf("%s: ... %spass%s\n", description.c_str(), GREEN, RESET);
         } else {
-            fprintf(stderr, "%s: ... %svalue fail%s\n", description.c_str(), RED, RESET);
+            printf("%s: ... %svalue fail%s\n", description.c_str(), RED, RESET);
         }
     } catch (const std::exception& e) {
-        fprintf(stderr, "%s: ... %serror: %s%s\n", description.c_str(), RED, e.what(), RESET);
+        printf("%s: ... %serror: %s%s\n", description.c_str(), RED, e.what(), RESET);
     }
 }
 
@@ -235,7 +244,8 @@ int main() {
 
     generic_test("tuple 5", "at2abb", std::vector<std::tuple<std::vector<uint8_t>,uint8_t>>{std::make_tuple(std::vector<uint8_t>{true, false}, true)});
 
-		generic_test("exhaustive edge cases for i32", "ai4", generate_integers());
+    generic_test("exhaustive edge cases for i32", "ai4", generate_integers());
+    generic_test("range(1500)", "au4", range(0, 1, 1500));
 
     generic_test("Test Alice", "m24names3ageu4", alice);
     generic_test("Test Bob weighted", "m34names3ageu46weightu4", bob);
