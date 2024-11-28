@@ -3,15 +3,8 @@
 
 echo ""
 echo "Testing C++"
-g++ -O -g -o cpptest1 -I$HOME/.morloc/include -I$PWD/../lang/cpp -L$HOME/.morloc/lib -lmlcmpack -Wl,-rpath,/home/z/.morloc/lib -lmlcmpack "test.cpp"
-g++    -g -o cpptest0 -I$HOME/.morloc/include -I$PWD/../lang/cpp -L$HOME/.morloc/lib -lmlcmpack -Wl,-rpath,/home/z/.morloc/lib -lmlcmpack "test.cpp"
-
-echo "With no optimization"
-./cpptest0
-
-echo
-echo "-O"
-./cpptest1
+g++ -g -o cpptest -I$HOME/.morloc/include -I$PWD/../lang/cpp -L$HOME/.morloc/lib -lmlcmpack -Wl,-rpath,/home/z/.morloc/lib -lmlcmpack "test.cpp"
+./cpptest
 
 # # echo ""
 # # echo "Testing R"

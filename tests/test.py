@@ -96,7 +96,7 @@ big_data = {
 test_cases = [
     ("Empty string", "s", ""),
     ("Single character string", "s", "x"),
-    ("Large string", "s", "x" * 100000),
+    ("Large string", "s", "x" * 1000000),
     ("Boolean true", "b", True),
     ("Boolean false", "b", False),
 
@@ -139,7 +139,7 @@ test_cases = [
 
     ("Medium bool array", "ab", [x % 2 == 0 for x in range(1000000)]),
     ("Medium string array", "as", [str(x) for x in range(5000)]),
-    ("Medium u1 array", "au1", list(1 for _ in range(1493))),
+    ("Medium u1 array", "au1", b'\x01' * 1500),
     ("Medium u2 array", "au2", list(range(1493))),
     ("Medium u4 array", "au4", list(range(1500))),
     ("Medium u8 array", "au8", list(range(1493))),

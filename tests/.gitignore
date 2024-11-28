@@ -1,4 +1,5 @@
 pympack.py
 __pycache__
-cpptest
+cpptest*
 cppbuild/
+z-*

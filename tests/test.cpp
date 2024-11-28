@@ -245,7 +245,14 @@ int main() {
     generic_test("tuple 5", "at2abb", std::vector<std::tuple<std::vector<uint8_t>,uint8_t>>{std::make_tuple(std::vector<uint8_t>{true, false}, true)});
 
     generic_test("exhaustive edge cases for i32", "ai4", generate_integers());
-    generic_test("range(1500)", "au4", range(0, 1, 1500));
+    generic_test("range(1500) au1", "au1", range<uint8_t>(  0, 1, 1500));
+    generic_test("range(1500) au2", "au2", range<uint16_t>( 0, 1, 1500));
+    generic_test("range(1500) au4", "au4", range<uint32_t>( 0, 1, 1500));
+    generic_test("range(1500) au8", "au8", range<uint64_t>( 0, 1, 1500));
+    generic_test("range(1500) ai1", "ai1", range<int8_t>(   0, 1, 1500));
+    generic_test("range(1500) ai2", "ai2", range<int16_t>(  0, 1, 1500));
+    generic_test("range(1500) ai4", "ai4", range<int32_t>(  0, 1, 1500));
+    generic_test("range(1500) ai8", "ai8", range<int64_t>(  0, 1, 1500));
 
     generic_test("Test Alice", "m24names3ageu4", alice);
     generic_test("Test Bob weighted", "m34names3ageu46weightu4", bob);

@@ -2,6 +2,14 @@
 #include "mlcmpack.h"
 #include "Python.h"
 
+
+// Exported prototypes
+static PyObject* to_msgpack(PyObject* self, PyObject* args);
+static PyObject* from_msgpack(PyObject* self, PyObject* args);
+static PyObject* to_voidstar(PyObject* self, PyObject* args);
+static PyObject* from_voidstar(PyObject* self, PyObject* args);
+
+
 // convert voidstar to MessagePack
 static PyObject* to_msgpack(PyObject* self, PyObject* args) {
     PyObject* voidstar_capsule;
@@ -16,23 +24,12 @@ static PyObject* to_msgpack(PyObject* self, PyObject* args) {
 
     void* voidstar = PyCapsule_GetPointer(voidstar_capsule, "VoidStar");
 
-/* fprintf(stderr, "schema: %s\n", schema); */
-/* Array* array = (Array*)voidstar;         */
-/* fprintf(stderr, "voidstar:\n");          */
-/* hex(array->data, array->size * 4);       */
-/* fprintf(stderr, "\n");                   */
-
     if (voidstar == NULL) {
         PyErr_SetString(PyExc_TypeError, "Invalid voidstar capsule");
         return NULL;
     }
 
     int exitcode = pack(voidstar, schema, &msgpck_data, &msgpck_data_len);
-
-/* fprintf(stderr, "msgpck_data:\n");   */
-/* hex(msgpck_data, msgpck_data_len);   */
-/* fprintf(stderr, "\n");               */
-
 
     if (exitcode != 0 || !msgpck_data) {
         PyErr_SetString(PyExc_RuntimeError, "Packing failed");
@@ -109,7 +106,6 @@ PyObject* fromAnything(const Schema* schema, const void* data){
             obj = PyLong_FromUnsignedLong(*(uint16_t*)data);
             break;
         case MORLOC_UINT32:
-/* fprintf(stderr, " = %d ", *(uint32_t*)data); */
             obj = PyLong_FromUnsignedLong(*(uint32_t*)data);
             break;
         case MORLOC_UINT64:
@@ -135,24 +131,17 @@ PyObject* fromAnything(const Schema* schema, const void* data){
             } else {
                 // For other types, create a list as before
                 obj = PyList_New(array->size);
-/* fprintf(stderr, "array->size: %zu\n", array->size);                                   */
-/* fprintf(stderr, "schema->parameters[0]->width: %zu\n", schema->parameters[0]->width); */
                 if (!obj) goto error;
-/* fprintf(stderr, "a\n"); */
                 char* start = (char*)array->data;
                 size_t width = schema->parameters[0]->width;
                 Schema* element_schema = schema->parameters[0];
                 for (size_t i = 0; i < array->size; i++) {
-/* hex(start + width * i, 2 * schema->parameters[0]->width); */
                     PyObject* item = fromAnything(element_schema, start + width * i);
                     if (!item || PyList_SetItem(obj, i, item) < 0) {
-/* fprintf(stderr, "failing on i=%zu\n", i); */
                         Py_XDECREF(item);
                         goto error;
                     }
-/* fprintf(stderr, "\n"); */
                 }
-/* fprintf(stderr, "done - Python fromAnything\n"); */
             }
             break;
         }
@@ -359,18 +348,13 @@ void* toAnything(void* dest, Schema* schema, PyObject* obj) {
 
 
                 if (PyList_Check(obj)) {
-/* fprintf(stderr, "Py: toAnything array\n"); */
                     size_t width = schema->parameters[0]->width;
                     char* start = (char*)result->data;
                     Schema* element_schema = schema->parameters[0];
                     for (Py_ssize_t i = 0; i < size; i++) {
-/* fprintf(stderr, "%zu ", i); */
                         PyObject* item = PyList_GetItem(obj, i);
                         toAnything(start + width * i, element_schema, item);
-/* hex(result->data + i * width, width); */
-/* fprintf(stderr, "\n");                */
                     }
-/* fprintf(stderr, "Py: done\n"); */
                 } else {
                     memcpy(result->data, data, size);
                 }
