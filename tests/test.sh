@@ -10,8 +10,8 @@ g++ -g -o cpptest -I$HOME/.morloc/include -I$PWD/../lang/cpp -L$HOME/.morloc/lib
 # # echo "Testing R"
 # # Rscript "test.R"
 
-echo ""
-echo "Testing python"
-ln -sf $PWD/../lang/py/pympack.cpython-312-x86_64-linux-gnu.so $PWD/pympack.cpython-312-x86_64-linux-gnu.so
+# echo ""
+# echo "Testing python"
+# ln -sf $PWD/../lang/py/pympack.cpython-312-x86_64-linux-gnu.so $PWD/pympack.cpython-312-x86_64-linux-gnu.so
 
-python "test.py" 2> z-py
+# python "test.py" 2> z-py

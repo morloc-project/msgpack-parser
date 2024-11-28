@@ -172,9 +172,28 @@ const char* RESET = "\033[0m";  // Reset to default
 template<typename T>
 void generic_test(const std::string& description, const std::string& schema_str, const T& data) {
     try {
-        std::vector<char> msgpack_data = mpk_pack(data, schema_str);
-        T data_ret = mpk_unpack<T>(msgpack_data, schema_str);
-        if(data_ret == data){
+
+        // parse schema
+        const char* schema_ptr = schema_str.c_str();
+        const Schema* schema = parse_schema(&schema_ptr);
+
+        // convert C++ data to morloc voidstar
+        void* voidstar_in = toAnything(NULL, schema, data);
+
+        // convert voidstar to MessagePack
+        char* mesgpack_ptr;
+        size_t mesgpack_size;
+        int pack_result = pack_with_schema(voidstar_in, schema, &mesgpack_ptr, &mesgpack_size);
+
+        // convert MessagePack back to voidstar
+        void* voidstar_out;
+        unpack_with_schema(mesgpack_ptr, mesgpack_size, schema, &voidstar_out);
+
+        // convert voidstar to C++ data
+        T* dumby = nullptr;
+        T return_data = fromAnything(schema, voidstar_out, dumby);
+
+        if(return_data == data){
             printf("%s: ... %spass%s\n", description.c_str(), GREEN, RESET);
         } else {
             printf("%s: ... %svalue fail%s\n", description.c_str(), RED, RESET);
@@ -235,12 +254,12 @@ int main() {
     generic_test("tuple 3b", "t3au2bau1", std::make_tuple(std::vector<uint16_t>{1,2,3}, true, std::vector<uint8_t>{1,2,3,4,5}));
     generic_test("tuple 3c", "t3bau2au1", std::make_tuple(true, std::vector<uint16_t>{1,2,3}, std::vector<uint8_t>{1,2,3,4,5}));
 
-    generic_test("tuple 4a", "t2bs", std::make_tuple(true, "Bob"));
-    generic_test("tuple 4b", "t2sb", std::make_tuple("Bob", true));
-    generic_test("tuple 4c", "t2u4s", std::make_tuple((uint32_t)42, "Bob"));
-    generic_test("tuple 4d", "t2su4", std::make_tuple("Bob", (uint32_t)42));
-    generic_test("tuple 4e", "t4i4bf8s", std::make_tuple(44, true, 42.7, "Bob"));
-    generic_test("tuple 4f", "t3su4u4", std::make_tuple("Bob", (uint32_t)42, (uint32_t)56));
+    generic_test("tuple 4a", "t2bs", std::make_tuple(true, std::string("Bob")));
+    generic_test("tuple 4b", "t2sb", std::make_tuple(std::string("Bob"), true));
+    generic_test("tuple 4c", "t2u4s", std::make_tuple((uint32_t)42, std::string("Bob")));
+    generic_test("tuple 4d", "t2su4", std::make_tuple(std::string("Bob"), (uint32_t)42));
+    generic_test("tuple 4e", "t4i4bf8s", std::make_tuple(44, true, 42.7, std::string("Bob")));
+    generic_test("tuple 4f", "t3su4u4", std::make_tuple(std::string("Bob"), (uint32_t)42, (uint32_t)56));
 
     generic_test("tuple 5", "at2abb", std::vector<std::tuple<std::vector<uint8_t>,uint8_t>>{std::make_tuple(std::vector<uint8_t>{true, false}, true)});
 
