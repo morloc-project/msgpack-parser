@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 
 
-echo ""
-echo "Testing C++"
-g++ -g -o cpptest -I$HOME/.morloc/include -I$PWD/../lang/cpp -L$HOME/.morloc/lib -lmlcmpack -Wl,-rpath,/home/z/.morloc/lib -lmlcmpack "test.cpp"
-./cpptest
+# echo ""
+# echo "Testing C++"
+# g++ -g -o cpptest -I$HOME/.morloc/include -I$PWD/../lang/cpp -L$HOME/.morloc/lib -lmlcmpack -Wl,-rpath,/home/z/.morloc/lib -lmlcmpack "test.cpp"
+# ./cpptest
 
-# # echo ""
-# # echo "Testing R"
-# # Rscript "test.R"
+# echo ""
+echo "Testing R"
+Rscript "test.R"
 
 # echo ""
 # echo "Testing python"

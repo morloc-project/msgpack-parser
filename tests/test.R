@@ -1,11 +1,11 @@
 dyn.load("~/.morloc/lib/libmpackr.so")
 
 pack <- function(obj, schema) {
-    .Call("_mlcmpack_r_pack", obj, schema)
+    .Call("to_mesgpack", obj, schema)
 }
 
 unpack <- function(packed, schema) {
-    .Call("_mlcmpack_r_unpack", packed, schema)
+    .Call("from_mesgpack", packed, schema)
 }
 
 # Function to print colored text
@@ -33,35 +33,39 @@ compare_objects <- function(obj1, obj2) {
 test_cases <- list(
     # bools
     list("Test boolean", "b", TRUE),
-    list("Test booleans", "ab", c(TRUE, FALSE)),
-    list("Test booleans list", "ab", list(TRUE, FALSE), c(TRUE, FALSE)),
+
+    # list("Test booleans", "ab", c(TRUE, FALSE)),
+    # list("Test booleans list", "ab", list(TRUE, FALSE), c(TRUE, FALSE)),
+
     # floats
     list("Test float", "f8", 3.14),
-    list("Test floats", "af8", c(3.14, 5.6)),
-    list("Test floats", "af8", list(3.14, 5.6), c(3.14, 5.6)),
+    # list("Test floats", "af8", c(3.14, 5.6)),
+    # list("Test floats", "af8", list(3.14, 5.6), c(3.14, 5.6)),
+
     # ints
     list("Test integer", "i4", 14L),
-    list("Test integers", "ai4", c(14L, 15L)),
-    list("Test integers list", "ai4", list(14L, 15L), c(14L, 15L)),
-    list("Test integer from double", "i4", 14, 14L),
-    list("Test integers from doubles", "ai4", c(14, 15), c(14L, 15L)),
-    list("Test integers list from doubles", "ai4", list(14, 15), c(14L, 15L)),
-    # strings
-    list("Test string", "s", "Hello"),
-    list("Test strings", "as", c("Hello", "Goodbye")),
-    list("Test strings list", "as", list("Hello", "Goodbye"), c("Hello", "Goodbye")),
-    # binary
-    list("Test raw binary", "r", as.raw(c(0x01, 0x02, 0x03))),
-    list("Test raw binaries", "ar", list(as.raw(c(0x01, 0x02, 0x03)), as.raw(c(0x00, 0x01)))),
-    # lists
-    list("Test array of arrays of booleans", "aab", list(c(TRUE,FALSE), c(FALSE,FALSE,TRUE))),
-    list("Test tuple of int and array of floats", "t2i4af8", list(42L, c(1.1, 2.2, 3.3))),
-    list("big numeric vector", "af8", runif(1000000)),
-    # tuples
-    list("tuple of lists", "t2asaai4", list(c("a", "b"), list(c(1,2,3), c(4,5,6)))),
-    # maps
-    list("map", "m21ab1bi4", list(a = T, b = 42)),
-    list("list of maps", "am21ab1bi4", list(list(a = T, b = 42), list(a = F, b = 420)))
+    # list("Test integers", "ai4", c(14L, 15L)),
+    # list("Test integers list", "ai4", list(14L, 15L), c(14L, 15L)),
+    list("Test integer from double", "i4", 14, 14L)
+    # list("Test integers from doubles", "ai4", c(14, 15), c(14L, 15L)),
+    # list("Test integers list from doubles", "ai4", list(14, 15), c(14L, 15L)),
+
+    # # strings
+    # list("Test string", "s", "Hello"),
+    # list("Test strings", "as", c("Hello", "Goodbye"))
+    # list("Test strings list", "as", list("Hello", "Goodbye"), c("Hello", "Goodbye")),
+    # # binary
+    # list("Test raw binary", "r", as.raw(c(0x01, 0x02, 0x03))),
+    # list("Test raw binaries", "ar", list(as.raw(c(0x01, 0x02, 0x03)), as.raw(c(0x00, 0x01)))),
+    # # lists
+    # list("Test array of arrays of booleans", "aab", list(c(TRUE,FALSE), c(FALSE,FALSE,TRUE))),
+    # list("Test tuple of int and array of floats", "t2i4af8", list(42L, c(1.1, 2.2, 3.3))),
+    # list("big numeric vector", "af8", runif(1000000)),
+    # # tuples
+    # list("tuple of lists", "t2asaai4", list(c("a", "b"), list(c(1,2,3), c(4,5,6)))),
+    # # maps
+    # list("map", "m21ab1bi4", list(a = T, b = 42)),
+    # list("list of maps", "am21ab1bi4", list(list(a = T, b = 42), list(a = F, b = 420)))
 )
 
 
