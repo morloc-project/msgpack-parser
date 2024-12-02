@@ -439,41 +439,82 @@ void* to_voidstar(void* dest, SEXP obj, const Schema* schema) {
             }
             *((double*)dest) = asReal(obj);
             break;
-        /* case MORLOC_STRING:                                                                                                  */
-        /* case MORLOC_ARRAY:                                                                                                   */
-        /*     if (schema->type == MORLOC_STRING && !isString(obj)) {                                                           */
-        /*         error("Expected character for MORLOC_STRING, but got %s", type2char(TYPEOF(obj)));                           */
-        /*     }                                                                                                                */
-        /*     if (schema->type == MORLOC_ARRAY && !isVector(obj)) {                                                            */
-        /*         error("Expected vector for MORLOC_ARRAY, but got %s", type2char(TYPEOF(obj)));                               */
-        /*     }                                                                                                                */
+        case MORLOC_STRING:
+        case MORLOC_ARRAY:
+            Array* array = array_data(dest, schema->parameters[0]->width, LENGTH(obj));
+            int length = LENGTH(obj);
+          
+            switch (TYPEOF(obj)) {
+                case VECSXP:  // This handles lists
+                    for (int i = 0; i < length; i++) {
+                        SEXP elem = VECTOR_ELT(obj, i);
+                        void* element_ptr = (char*)array->data + i * schema->parameters[0]->width;
+                        to_voidstar(element_ptr, elem, schema->parameters[0]);
+                    }
+                    break;
+                case LGLSXP:
+                    for (int i = 0; i < length; i++) {
+                        SEXP elem = PROTECT(ScalarLogical(LOGICAL(obj)[i]));
+                        void* element_ptr = (char*)array->data + i * schema->parameters[0]->width;
+                        to_voidstar(element_ptr, elem, schema->parameters[0]);
+                        UNPROTECT(1);
+                    }
+                    break;
+                case INTSXP:
+                    for (int i = 0; i < length; i++) {
+                        SEXP elem = PROTECT(ScalarInteger(INTEGER(obj)[i]));
+                        void* element_ptr = (char*)array->data + i * schema->parameters[0]->width;
+                        to_voidstar(element_ptr, elem, schema->parameters[0]);
+                        UNPROTECT(1);
+                    }
+                    break;
+                case REALSXP:
+                    for (int i = 0; i < length; i++) {
+                        SEXP elem = PROTECT(ScalarReal(REAL(obj)[i]));
+                        void* element_ptr = (char*)array->data + i * schema->parameters[0]->width;
+                        to_voidstar(element_ptr, elem, schema->parameters[0]);
+                        UNPROTECT(1);
+                    }
+                    break;
+                case CHARSXP:
+                    const char* str = CHAR(obj);
+                    size_t str_len = strlen(str);  // Do not include null terminator
+                    array->size = str_len;
+                    memcpy(array->data, str, str_len);
+                    break;
+                case STRSXP:
+                    if (length == 1) {
+                        SEXP elem = STRING_ELT(obj, 0);
+                        const char* str = CHAR(elem);
+                        size_t str_len = strlen(str);  // Do not include null terminator
+                        array->size = str_len;
+                        memcpy(array->data, str, str_len);
+                    } else {
+                        if(schema->parameters[0]->type == MORLOC_STRING){
+                            Schema* element_schema = schema->parameters[0];
+                            for(size_t i = 0; i < array->size; i++){
+                                SEXP elem = STRING_ELT(obj, i);
+                                to_voidstar(array->data + i * element_schema->width, elem, element_schema); 
+                            }
+                        } else {
+                            error("Expected character vector of length 1, but got length %d", length);
+                        }
+                    }
+                    break;
+                case RAWSXP:  // Raw vectors
+                    for (int i = 0; i < length; i++) {
+                        SEXP elem = PROTECT(ScalarRaw(RAW(obj)[i]));
+                        void* element_ptr = (char*)array->data + i * schema->parameters[0]->width;
+                        to_voidstar(element_ptr, elem, schema->parameters[0]);
+                        UNPROTECT(1);
+                    }
+                    break;
+                default:
+                    error("Unsupported type in to_voidstar: %s", type2char(TYPEOF(obj)));
+            }
+            break;
 
-        /*     {                                                                                                                */
-        /*         R_xlen_t size = xlength(obj);                                                                                */
-        /*         const char* data;                                                                                            */
 
-        /*         if (isString(obj)) {                                                                                         */
-        /*             data = CHAR(STRING_ELT(obj, 0));                                                                         */
-        /*         }                                                                                                            */
-
-        /*         Array* result = array_data(dest, schema->parameters[0]->width, size);                                        */
-
-        /*         if (isVector(obj)) {                                                                                         */
-        /*             size_t width = schema->parameters[0]->width;                                                             */
-        /*             char* start = (char*)result->data;                                                                       */
-        /*             Schema* element_schema = schema->parameters[0];                                                          */
-        /*             for (R_xlen_t i = 0; i < size; i++) {                                                                    */
-        /*                 SEXP item = VECTOR_ELT(obj, i);                                                                      */
-        /*                 r_to_anything(item, element_schema);                                                                 */
-        /*                 memcpy(start + width * i, element_schema->data, width);                                              */
-        /*             }                                                                                                        */
-        /*         } else {                                                                                                     */
-        /*             memcpy(result->data, data, size);                                                                        */
-        /*         }                                                                                                            */
-
-        /*         dest = (void*)result;                                                                                        */
-        /*     }                                                                                                                */
-        /*     break;                                                                                                           */
 
         /* case MORLOC_TUPLE:                                                                                                   */
         /*     if (!isVectorList(obj)) {                                                                                        */
@@ -508,7 +549,6 @@ void* to_voidstar(void* dest, SEXP obj, const Schema* schema) {
         /*             }                                                                                                        */
         /*         }                                                                                                            */
         /*     }                                                                                                                */
-            break;
 
         default:
             error("Unhandled schema type");
@@ -698,31 +738,122 @@ SEXP from_voidstar(const void* data, const Schema* schema) {
             break;
         case MORLOC_STRING: {
             Array* str_array = (Array*)data;
-            obj = mkCharLen(str_array->data, str_array->size);
-            obj = ScalarString(obj);
+            SEXP chr = PROTECT(mkCharLen(str_array->data, str_array->size));
+            obj = PROTECT(ScalarString(chr));
+            UNPROTECT(2);
             break;
         }
-        /* case MORLOC_ARRAY: {                                                      */
-        /*     Array* array = (Array*)data;                                          */
-        /*     if (schema->parameters[0]->type == MORLOC_UINT8) {                    */
-        /*         obj = allocVector(RAWSXP, array->size);                           */
-        /*         memcpy(RAW(obj), array->data, array->size);                       */
-        /*     } else {                                                              */
-        /*         obj = allocVector(VECSXP, array->size);                           */
-        /*         char* start = (char*)array->data;                                 */
-        /*         size_t width = schema->parameters[0]->width;                      */
-        /*         Schema* element_schema = schema->parameters[0];                   */
-        /*         for (size_t i = 0; i < array->size; i++) {                        */
-        /*             SEXP item = anything_to_r(element_schema, start + width * i); */
-        /*             if (item == R_NilValue) {                                     */
-        /*                 obj = R_NilValue;                                         */
-        /*                 goto error;                                               */
-        /*             }                                                             */
-        /*             SET_VECTOR_ELT(obj, i, item);                                 */
-        /*         }                                                                 */
-        /*     }                                                                     */
-        /*     break;                                                                */
-        /* }                                                                         */
+        case MORLOC_ARRAY:
+            {
+                Array* array = (Array*)data;
+                Schema* element_schema = schema->parameters[0];
+                
+                switch(element_schema->type){
+                    case MORLOC_BOOL:
+                        obj = PROTECT(allocVector(LGLSXP, array->size));
+                        for (size_t i = 0; i < array->size; i++) {
+                            LOGICAL(obj)[i] = *(bool*)((char*)array->data + i * sizeof(bool)) ? TRUE : FALSE;
+                        }
+                        UNPROTECT(1);
+                        break;
+                    case MORLOC_SINT8:
+                        obj = PROTECT(allocVector(INTSXP, array->size));
+                        for (size_t i = 0; i < array->size; i++) {
+                            INTEGER(obj)[i] = (int)(*(int8_t*)((char*)array->data + i * sizeof(int8_t)));
+                        }
+                        UNPROTECT(1);
+                        break;
+                    case MORLOC_SINT16:
+                        obj = PROTECT(allocVector(INTSXP, array->size));
+                        for (size_t i = 0; i < array->size; i++) {
+                            INTEGER(obj)[i] = (int)(*(int16_t*)((char*)array->data + i * sizeof(int16_t)));
+                        }
+                        UNPROTECT(1);
+                        break;
+                    case MORLOC_SINT32:
+                        obj = PROTECT(allocVector(INTSXP, array->size));
+                        memcpy(INTEGER(obj), array->data, array->size * sizeof(int32_t));
+                        UNPROTECT(1);
+                        break;
+                    case MORLOC_SINT64:
+                        obj = PROTECT(allocVector(REALSXP, array->size));
+                        for (size_t i = 0; i < array->size; i++) {
+                            REAL(obj)[i] = (double)(*(int64_t*)((char*)array->data + i * sizeof(int64_t)));
+                        }
+                        UNPROTECT(1);
+                        break;
+                    case MORLOC_UINT8:
+                        obj = PROTECT(allocVector(INTSXP, array->size));
+                        for (size_t i = 0; i < array->size; i++) {
+                            INTEGER(obj)[i] = (int)(*(uint8_t*)((char*)array->data + i * sizeof(uint8_t)));
+                        }
+                        UNPROTECT(1);
+                        break;
+                    case MORLOC_UINT16:
+                        obj = PROTECT(allocVector(INTSXP, array->size));
+                        for (size_t i = 0; i < array->size; i++) {
+                            INTEGER(obj)[i] = (int)(*(uint16_t*)((char*)array->data + i * sizeof(uint16_t)));
+                        }
+                        UNPROTECT(1);
+                        break;
+                    case MORLOC_UINT32:
+                        obj = PROTECT(allocVector(REALSXP, array->size));
+                        for (size_t i = 0; i < array->size; i++) {
+                            REAL(obj)[i] = (double)(*(uint32_t*)((char*)array->data + i * sizeof(uint32_t)));
+                        }
+                        UNPROTECT(1);
+                        break;
+                    case MORLOC_UINT64:
+                        obj = PROTECT(allocVector(REALSXP, array->size));
+                        for (size_t i = 0; i < array->size; i++) {
+                            REAL(obj)[i] = (double)(*(uint64_t*)((char*)array->data + i * sizeof(uint64_t)));
+                        }
+                        UNPROTECT(1);
+                        break;
+                    case MORLOC_FLOAT32:
+                        obj = PROTECT(allocVector(REALSXP, array->size));
+                        for (size_t i = 0; i < array->size; i++) {
+                            REAL(obj)[i] = (double)(*(float*)((char*)array->data + i * sizeof(float)));
+                        }
+                        UNPROTECT(1);
+                        break;
+                    case MORLOC_FLOAT64:
+                        obj = PROTECT(allocVector(REALSXP, array->size));
+                        memcpy(REAL(obj), array->data, array->size * sizeof(double));
+                        UNPROTECT(1);
+                        break;
+                    case MORLOC_STRING:
+                        {
+                            obj = PROTECT(allocVector(STRSXP, array->size));
+                            char* start = (char*)array->data;
+                            size_t width = schema->width;
+                            for (size_t i = 0; i < array->size; i++) {
+                                Array* str_array = (Array*)(start + i * width);
+                                SEXP item = PROTECT(mkCharLen(str_array->data, str_array->size));
+                                UNPROTECT(1);
+                                SET_STRING_ELT(obj, i, item);
+                            }
+                            UNPROTECT(1);
+                        }
+                        break;
+                    default:
+                        {
+                            obj = allocVector(VECSXP, array->size);
+                            char* start = (char*)array->data;
+                            size_t width = element_schema->width;
+                            for (size_t i = 0; i < array->size; i++) {
+                                SEXP item = from_voidstar(start + width * i, element_schema);
+                                if (item == R_NilValue) {
+                                    obj = R_NilValue;
+                                    goto error;
+                                }
+                                SET_VECTOR_ELT(obj, i, item);
+                            }
+                        }
+                        break;
+                }
+            }
+            break;
         /* case MORLOC_TUPLE: {                                                      */
         /*     obj = allocVector(VECSXP, schema->size);                              */
         /*     for (size_t i = 0; i < schema->size; i++) {                           */

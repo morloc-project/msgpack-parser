@@ -34,29 +34,29 @@ test_cases <- list(
     # bools
     list("Test boolean", "b", TRUE),
 
-    # list("Test booleans", "ab", c(TRUE, FALSE)),
-    # list("Test booleans list", "ab", list(TRUE, FALSE), c(TRUE, FALSE)),
+    list("Test booleans", "ab", c(TRUE, FALSE)),
+    list("Test booleans list", "ab", list(TRUE, FALSE), c(TRUE, FALSE)),
 
     # floats
     list("Test float", "f8", 3.14),
-    # list("Test floats", "af8", c(3.14, 5.6)),
-    # list("Test floats", "af8", list(3.14, 5.6), c(3.14, 5.6)),
+    list("Test floats", "af8", c(3.14, 5.6)),
+    list("Test floats", "af8", list(3.14, 5.6), c(3.14, 5.6)),
 
     # ints
     list("Test integer", "i4", 14L),
-    # list("Test integers", "ai4", c(14L, 15L)),
-    # list("Test integers list", "ai4", list(14L, 15L), c(14L, 15L)),
-    list("Test integer from double", "i4", 14, 14L)
-    # list("Test integers from doubles", "ai4", c(14, 15), c(14L, 15L)),
-    # list("Test integers list from doubles", "ai4", list(14, 15), c(14L, 15L)),
+    list("Test integers", "ai4", c(14L, 15L), c(14, 15)),
+    list("Test integers list", "ai4", list(14L, 15L), c(14L, 15L)),
+    list("Test integer from double", "i4", 14, 14L),
+    list("Test integers from doubles", "ai4", c(14, 15), c(14L, 15L)),
+    list("Test integers list from doubles", "ai4", list(14, 15), c(14L, 15L)),
 
-    # # strings
-    # list("Test string", "s", "Hello"),
-    # list("Test strings", "as", c("Hello", "Goodbye"))
-    # list("Test strings list", "as", list("Hello", "Goodbye"), c("Hello", "Goodbye")),
+    # strings
+    list("Test string", "s", "Hello"),
+    list("Test strings", "as", c("Hello", "Goodbye")),
+    list("Test strings list", "as", list("Hello", "Goodbye"), c("Hello", "Goodbye"))
     # # binary
     # list("Test raw binary", "r", as.raw(c(0x01, 0x02, 0x03))),
-    # list("Test raw binaries", "ar", list(as.raw(c(0x01, 0x02, 0x03)), as.raw(c(0x00, 0x01)))),
+    # list("Test raw binaries", "ar", list(as.raw(c(0x01, 0x02, 0x03)), as.raw(c(0x00, 0x01))))
     # # lists
     # list("Test array of arrays of booleans", "aab", list(c(TRUE,FALSE), c(FALSE,FALSE,TRUE))),
     # list("Test tuple of int and array of floats", "t2i4af8", list(42L, c(1.1, 2.2, 3.3))),
@@ -92,8 +92,8 @@ for (case in test_cases) {
         } else {
             nfails <- nfails + 1
             cat(test_description, "...", color_text("fail", "red"), "\n")
-            cat("Original:", toString(expected_data), "\n")
-            cat("Returned:", toString(returned_data), "\n")
+            cat("Original:", toString(expected_data), " where class =", class(expected_data), "\n")
+            cat("Returned:", toString(returned_data), " where class =", class(returned_data), "\n")
         }
     }, error = function(e) {
         nfails <<- nfails + 1
