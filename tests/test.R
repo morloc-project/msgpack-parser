@@ -67,10 +67,10 @@ test_cases <- list(
     list("Test raw binaries", "aau1", list(as.raw(c(0x01, 0x02, 0x03)), as.raw(c(0x00, 0x01)))),
     # lists
     list("Test array of arrays of booleans", "aab", list(c(TRUE,FALSE), c(FALSE,FALSE,TRUE))),
-    list("big numeric vector", "af8", runif(1000000))
-    # # tuples
-    # list("Test tuple of int and array of floats", "t2i4af8", list(42L, c(1.1, 2.2, 3.3))),
-    # list("tuple of lists", "t2asaai4", list(c("a", "b"), list(c(1,2,3), c(4,5,6)))),
+    list("big numeric vector", "af8", runif(1000000)),
+    # tuples
+    list("Test tuple of int and array of floats", "t2i4af8", list(42L, c(1.1, 2.2, 3.3))),
+    list("tuple of lists", "t2asaai4", list(c("bad", "john"), list(c(1L,2L), c(4L,5L,6L))))
     # # maps
     # list("map", "m21ab1bi4", list(a = T, b = 42)),
     # list("list of maps", "am21ab1bi4", list(list(a = T, b = 42), list(a = F, b = 420)))

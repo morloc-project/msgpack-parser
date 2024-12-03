@@ -515,23 +515,22 @@ void* to_voidstar(void* dest, SEXP obj, const Schema* schema) {
 
 
 
-        /* case MORLOC_TUPLE:                                                                                                   */
-        /*     if (!isVectorList(obj)) {                                                                                        */
-        /*         error("Expected list for MORLOC_TUPLE, but got %s", type2char(TYPEOF(obj)));                                 */
-        /*     }                                                                                                                */
+        case MORLOC_TUPLE:
+            if (!isVectorList(obj)) {
+                error("Expected list for MORLOC_TUPLE, but got %s", type2char(TYPEOF(obj)));
+            }
 
-        /*     {                                                                                                                */
-        /*         R_xlen_t size = xlength(obj);                                                                                */
-        /*         if ((size_t)size != schema->size) {                                                                          */
-        /*             error("List size mismatch");                                                                             */
-        /*         }                                                                                                            */
-        /*         for (R_xlen_t i = 0; i < size; ++i) {                                                                        */
-        /*             SEXP item = VECTOR_ELT(obj, i);                                                                          */
-        /*             r_to_anything(item, schema->parameters[i]);                                                              */
-        /*             memcpy((char*)dest + schema->offsets[i], schema->parameters[i]->data, schema->parameters[i]->width);     */
-        /*         }                                                                                                            */
-        /*     }                                                                                                                */
-        /*     break;                                                                                                           */
+            {
+                R_xlen_t size = xlength(obj);
+                if ((size_t)size != schema->size) {
+                    error("Expected tuple of length %zu, but found list of length %zu", schema->size, size);
+                }
+                for (R_xlen_t i = 0; i < size; ++i) {
+                    SEXP item = VECTOR_ELT(obj, i);
+                    to_voidstar(dest + schema->offsets[i], item, schema->parameters[i]);
+                }
+            }
+            break;
 
         /* case MORLOC_MAP:                                                                                                     */
         /*     if (!isEnvironment(obj)) {                                                                                       */
@@ -852,19 +851,19 @@ SEXP from_voidstar(const void* data, const Schema* schema) {
                 }
             }
             break;
-        /* case MORLOC_TUPLE: {                                                      */
-        /*     obj = allocVector(VECSXP, schema->size);                              */
-        /*     for (size_t i = 0; i < schema->size; i++) {                           */
-        /*         void* item_ptr = (char*)data + schema->offsets[i];                */
-        /*         SEXP item = anything_to_r(schema->parameters[i], item_ptr);       */
-        /*         if (item == R_NilValue) {                                         */
-        /*             obj = R_NilValue;                                             */
-        /*             goto error;                                                   */
-        /*         }                                                                 */
-        /*         SET_VECTOR_ELT(obj, i, item);                                     */
-        /*     }                                                                     */
-        /*     break;                                                                */
-        /* }                                                                         */
+        case MORLOC_TUPLE: {
+            obj = allocVector(VECSXP, schema->size);
+            for (size_t i = 0; i < schema->size; i++) {
+                void* item_ptr = (char*)data + schema->offsets[i];
+                SEXP item = from_voidstar(item_ptr, schema->parameters[i]);
+                if (item == R_NilValue) {
+                    obj = R_NilValue;
+                    goto error;
+                }
+                SET_VECTOR_ELT(obj, i, item);
+            }
+            break;
+        }
         /* case MORLOC_MAP: {                                                        */
         /*     obj = allocVector(VECSXP, schema->size);                              */
         /*     SEXP names = allocVector(STRSXP, schema->size);                       */
