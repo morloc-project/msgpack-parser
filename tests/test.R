@@ -48,22 +48,45 @@ test_cases <- list(
     list("Test i2", "i2", 14L),
     list("Test i4", "i4", 14L),
     list("Test i8", "i8", 14L),
+    list("Test large i8", "i8", 2**50),
+
+    list("Test -i1", "i1", -14L),
+    list("Test -i2", "i2", -14L),
+    list("Test -i4", "i4", -14L),
+    list("Test -i8", "i8", -14L),
+    list("Test -large i8", "i8", -2**50),
+
     list("Test u1", "u1", 14L),
     list("Test u2", "u2", 14L),
     list("Test u4", "u4", 14L),
     list("Test u8", "u8", 14L),
+    list("Test large u8", "u8", 2**50),
+
+    list("Test empty array of i4", "ai4", integer(0)),
+    list("Test empty array of i8", "ai4", integer(0)),
+    list("Test empty array of f4", "af4", numeric(0)),
+    list("Test empty array of f8", "af4", numeric(0)),
+
     list("Test integers", "ai4", c(14L, 15L), c(14, 15)),
     list("Test integers list", "ai4", list(14L, 15L), c(14L, 15L)),
     list("Test integer from double", "i4", 14, 14L),
     list("Test integers from doubles", "ai4", c(14, 15), c(14L, 15L)),
     list("Test integers list from doubles", "ai4", list(14, 15), c(14L, 15L)),
 
+    # arrays
+    list("Test random integers", "ai8", sample.int(2**51, 1000000)),
+    list("Test random bool", "ab", sample.int(2, 1000000, replace=T) == 1),
+    list("Test long random character", "as", as.character(sample.int(2**51, 100000))),
+
     # strings
     list("Test string", "s", "Hello"),
+    list("Test random long string", "s", paste(as.character(sample.int(2**51, 2)), collapse="")),
     list("Test strings", "as", c("Hello", "Goodbye")),
     list("Test strings list", "as", list("Hello", "Goodbye"), c("Hello", "Goodbye")),
     # binary
+    list("Test empty raw binary", "au1", raw(0)),
     list("Test raw binary", "au1", as.raw(c(0x01, 0x02, 0x03))),
+    list("Test long raw binary", "au1", as.raw( sample.int(256, 100000, replace=TRUE) - 1 )),
     list("Test raw binaries", "aau1", list(as.raw(c(0x01, 0x02, 0x03)), as.raw(c(0x00, 0x01)))),
     # lists
     list("Test array of arrays of booleans", "aab", list(c(TRUE,FALSE), c(FALSE,FALSE,TRUE))),
