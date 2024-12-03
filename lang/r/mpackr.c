@@ -781,11 +781,10 @@ SEXP from_voidstar(const void* data, const Schema* schema) {
                         }
                         UNPROTECT(1);
                         break;
+                    // Interpret the uint8 as a raw vector
                     case MORLOC_UINT8:
-                        obj = PROTECT(allocVector(INTSXP, array->size));
-                        for (size_t i = 0; i < array->size; i++) {
-                            INTEGER(obj)[i] = (int)(*(uint8_t*)((char*)array->data + i * sizeof(uint8_t)));
-                        }
+                        obj = PROTECT(allocVector(RAWSXP, array->size));
+                        memcpy(RAW(obj), array->data, array->size * sizeof(uint8_t));
                         UNPROTECT(1);
                         break;
                     case MORLOC_UINT16:
