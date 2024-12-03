@@ -70,10 +70,10 @@ test_cases <- list(
     list("big numeric vector", "af8", runif(1000000)),
     # tuples
     list("Test tuple of int and array of floats", "t2i4af8", list(42L, c(1.1, 2.2, 3.3))),
-    list("tuple of lists", "t2asaai4", list(c("bad", "john"), list(c(1L,2L), c(4L,5L,6L))))
-    # # maps
-    # list("map", "m21ab1bi4", list(a = T, b = 42)),
-    # list("list of maps", "am21ab1bi4", list(list(a = T, b = 42), list(a = F, b = 420)))
+    list("tuple of lists", "t2asaai4", list(c("bad", "john"), list(c(1L,2L), c(4L,5L,6L)))),
+    # maps
+    list("map", "m21ab1bi4", list(a = T, b = 42)),
+    list("list of maps", "am21ab1bi4", list(list(a = T, b = 42), list(a = F, b = 420)))
 )
 
 

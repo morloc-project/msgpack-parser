@@ -532,21 +532,34 @@ void* to_voidstar(void* dest, SEXP obj, const Schema* schema) {
             }
             break;
 
-        /* case MORLOC_MAP:                                                                                                     */
-        /*     if (!isEnvironment(obj)) {                                                                                       */
-        /*         error("Expected environment for MORLOC_MAP, but got %s", type2char(TYPEOF(obj)));                            */
-        /*     }                                                                                                                */
-
-        /*     {                                                                                                                */
-        /*         for (size_t i = 0; i < schema->size; ++i) {                                                                  */
-        /*             SEXP key = mkString(schema->keys[i]);                                                                    */
-        /*             SEXP value = findVar(installChar(key), obj);                                                             */
-        /*             if (value != R_UnboundValue) {                                                                           */
-        /*                 r_to_anything(value, schema->parameters[i]);                                                         */
-        /*                 memcpy((char*)dest + schema->offsets[i], schema->parameters[i]->data, schema->parameters[i]->width); */
-        /*             }                                                                                                        */
-        /*         }                                                                                                            */
-        /*     }                                                                                                                */
+        case MORLOC_MAP:
+            {
+                if (isNewList(obj)) {
+                    // Handle named list
+                    SEXP names = getAttrib(obj, R_NamesSymbol);
+                    if (names == R_NilValue) {
+                        error("List must have names for MORLOC_MAP");
+                    }
+                    for (size_t i = 0; i < schema->size; ++i) {
+                        SEXP key = PROTECT(mkChar(schema->keys[i]));
+                        int index = -1;
+                        for (int j = 0; j < length(obj); j++) {
+                            if (strcmp(CHAR(STRING_ELT(names, j)), CHAR(key)) == 0) {
+                                index = j;
+                                break;
+                            }
+                        }
+                        if (index != -1) {
+                            SEXP value = VECTOR_ELT(obj, index);
+                            to_voidstar(dest + schema->offsets[i], value, schema->parameters[i]);
+                        }
+                        UNPROTECT(1);
+                    }
+                } else {
+                    error("Expected a named list for MORLOC_MAP");
+                }
+            }
+            break;
 
         default:
             error("Unhandled schema type");
@@ -864,22 +877,22 @@ SEXP from_voidstar(const void* data, const Schema* schema) {
             }
             break;
         }
-        /* case MORLOC_MAP: {                                                        */
-        /*     obj = allocVector(VECSXP, schema->size);                              */
-        /*     SEXP names = allocVector(STRSXP, schema->size);                       */
-        /*     for (size_t i = 0; i < schema->size; i++) {                           */
-        /*         void* item_ptr = (char*)data + schema->offsets[i];                */
-        /*         SEXP value = anything_to_r(schema->parameters[i], item_ptr);      */
-        /*         if (value == R_NilValue) {                                        */
-        /*             obj = R_NilValue;                                             */
-        /*             goto error;                                                   */
-        /*         }                                                                 */
-        /*         SET_VECTOR_ELT(obj, i, value);                                    */
-        /*         SET_STRING_ELT(names, i, mkChar(schema->keys[i]));                */
-        /*     }                                                                     */
-        /*     setAttrib(obj, R_NamesSymbol, names);                                 */
-        /*     break;                                                                */
-        /* }                                                                         */
+        case MORLOC_MAP: {
+            obj = allocVector(VECSXP, schema->size);
+            SEXP names = allocVector(STRSXP, schema->size);
+            for (size_t i = 0; i < schema->size; i++) {
+                void* item_ptr = (char*)data + schema->offsets[i];
+                SEXP value = from_voidstar(item_ptr, schema->parameters[i]);
+                if (value == R_NilValue) {
+                    obj = R_NilValue;
+                    goto error;
+                }
+                SET_VECTOR_ELT(obj, i, value);
+                SET_STRING_ELT(names, i, mkChar(schema->keys[i]));
+            }
+            setAttrib(obj, R_NamesSymbol, names);
+            break;
+        }
         default:
             error("Unsupported schema type");
             goto error;
