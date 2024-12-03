@@ -501,13 +501,12 @@ void* to_voidstar(void* dest, SEXP obj, const Schema* schema) {
                         }
                     }
                     break;
+
                 case RAWSXP:  // Raw vectors
-                    for (int i = 0; i < length; i++) {
-                        SEXP elem = PROTECT(ScalarRaw(RAW(obj)[i]));
-                        void* element_ptr = (char*)array->data + i * schema->parameters[0]->width;
-                        to_voidstar(element_ptr, elem, schema->parameters[0]);
-                        UNPROTECT(1);
+                    if (schema->parameters[0]->type != MORLOC_UINT8) {
+                        error("Expected MORLOC_UINT8 for raw vector");
                     }
+                    memcpy(array->data, RAW(obj), length * sizeof(uint8_t));
                     break;
                 default:
                     error("Unsupported type in to_voidstar: %s", type2char(TYPEOF(obj)));
