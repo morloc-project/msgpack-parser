@@ -1,5 +1,5 @@
 #define PY_SSIZE_T_CLEAN
-#include "mlcmpack.h"
+#include "morloc.h"
 #include "Python.h"
 
 
@@ -24,7 +24,7 @@ static PyObject* to_mesgpack(PyObject* self, PyObject* args) {
         return NULL;
     }
 
-    void* voidstar = PyCapsule_GetPointer(voidstar_capsule, "VoidStar");
+    void* voidstar = PyCapsule_GetPointer(voidstar_capsule, "absptr_t");
 
     if (voidstar == NULL) {
         PyErr_SetString(PyExc_TypeError, "Invalid voidstar capsule");
@@ -48,7 +48,7 @@ static PyObject* to_mesgpack(PyObject* self, PyObject* args) {
 
 // destroy the voidstar
 static void voidstar_destructor(PyObject *capsule) {
-    void *voidstar = PyCapsule_GetPointer(capsule, "VoidStar");
+    void *voidstar = PyCapsule_GetPointer(capsule, "absptr_t");
     if (voidstar) {
         free(voidstar);
     }
@@ -71,7 +71,7 @@ static PyObject* from_mesgpack(PyObject* self, PyObject* args) {
         return NULL;
     }
 
-    PyObject* voidstar_capsule = PyCapsule_New(voidstar, "VoidStar", voidstar_destructor);
+    PyObject* voidstar_capsule = PyCapsule_New(voidstar, "absptr_t", voidstar_destructor);
     if (!voidstar_capsule) {
         free(voidstar);  // Or use appropriate deallocation function
         return NULL;
@@ -200,14 +200,14 @@ static PyObject* from_voidstar(PyObject* self, PyObject* args) {
         return NULL;
     }
 
-    void* voidstar = PyCapsule_GetPointer(voidstar_capsule, "VoidStar");
+    void* voidstar = PyCapsule_GetPointer(voidstar_capsule, "absptr_t");
 
     if (voidstar == NULL) {
         PyErr_SetString(PyExc_TypeError, "Invalid voidstar capsule");
         return NULL;
     }
 
-    const Schema* schema = parse_schema(&schema_str);
+    Schema* schema = parse_schema(&schema_str);
     if (!schema) {
         PyErr_SetString(PyExc_ValueError, "Failed to parse schema");
         return NULL;
@@ -215,6 +215,7 @@ static PyObject* from_voidstar(PyObject* self, PyObject* args) {
 
     PyObject* obj = fromAnything(schema, voidstar);
     if (obj == NULL) {
+        free_schema(schema);
         PyErr_SetString(PyExc_TypeError, "fromAnything returned NULL");
         return NULL;
     }
@@ -256,7 +257,7 @@ static PyObject* from_voidstar(PyObject* self, PyObject* args) {
     } while(0)
 
 
-void* toAnything(void* dest, Schema* schema, PyObject* obj) {
+void* toAnything(void* dest, const Schema* schema, PyObject* obj) {
     if (!dest) {
         dest = get_ptr(schema);
     }
@@ -342,7 +343,7 @@ void* toAnything(void* dest, Schema* schema, PyObject* obj) {
                     size = PyList_Size(obj);
                 } else if (PyBytes_Check(obj)) {
                     PyBytes_AsStringAndSize(obj, &data, &size);
-                } else { // PyUnicode_Check(obj)
+                } else {
                     data = PyUnicode_AsUTF8AndSize(obj, &size);
                 }
 
@@ -435,7 +436,7 @@ static PyObject* to_voidstar(PyObject* self, PyObject* args){
   // Note that there is no destructor. This memory is managed by the custom
   // memory allocator. I will eventually add some means of reference
   // counting. When I do, the destructor will decrement this count.
-  PyObject* voidstar_capsule = PyCapsule_New(voidstar, "VoidStar", NULL);
+  PyObject* voidstar_capsule = PyCapsule_New(voidstar, "absptr_t", NULL);
 
   free_schema(schema);
 
@@ -452,7 +453,7 @@ static PyObject* py_to_mesgpack(PyObject* self, PyObject* args) {
       return NULL;
   }
 
-  const Schema* schema = parse_schema(&schema_str);
+  Schema* schema = parse_schema(&schema_str);
   if (!schema) {
       PyErr_SetString(PyExc_ValueError, "py_to_mesgpack: Failed to parse schema");
       return NULL;
@@ -472,11 +473,13 @@ static PyObject* py_to_mesgpack(PyObject* self, PyObject* args) {
   if (exitcode != 0 || !msgpck_data) {
       PyErr_SetString(PyExc_RuntimeError, "py_to_mesgpack: Packing failed");
       free(msgpck_data);
+      free_schema(schema);
       return NULL;
   }
 
   // TODO: avoid memory copying here
   PyObject* mesgpack_bytes = PyBytes_FromStringAndSize(msgpck_data, msgpck_data_len);
+  free_schema(schema);
   free(msgpck_data);
 
   // free voidstar, we shan't be needing it now
@@ -495,9 +498,13 @@ static PyObject* mesgpack_to_py(PyObject* self, PyObject* args) {
         return NULL;
     }
 
-    const Schema* schema = parse_schema(&schema_str);
+    Schema* schema = parse_schema(&schema_str);
 
     int exitcode = unpack_with_schema(msgpck_data, msgpck_data_len, schema, &voidstar);
+    if(exitcode != 0){
+        PyErr_SetString(PyExc_TypeError, "unpack_with_schema failed in mesgpack_to_py");
+        return NULL;
+    }
 
     PyObject* obj = fromAnything(schema, voidstar);
     if (obj == NULL) {
@@ -511,24 +518,124 @@ static PyObject* mesgpack_to_py(PyObject* self, PyObject* args) {
 }
 
 
+
+// initialize a shared memory pool with one volume
+static PyObject* shm_start(PyObject* self, PyObject* args) {
+    char* basename;
+    size_t shm_desired_size;
+    shm_t* shm;
+
+    if (!PyArg_ParseTuple(args, "sk", &basename, &shm_desired_size)) {
+        PyErr_SetString(PyExc_TypeError, "Failed to parse arguments");
+        return NULL;
+    }
+
+    shm = shinit(basename, 0, shm_desired_size);
+    if (shm == NULL) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to initialize shared memory");
+        return NULL;
+    }
+
+    return PyCapsule_New(shm, "shm_t", NULL);
+}
+
+static PyObject* shm_rel2abs(PyObject* self, PyObject* args) {
+    size_t relptr;
+    if (!PyArg_ParseTuple(args, "k", &relptr)) {
+        return NULL;
+    }
+    
+    absptr_t absptr = rel2abs((relptr_t)relptr);
+    return PyCapsule_New((void*)absptr, "absptr_t", NULL);
+}
+
+static PyObject* shm_abs2rel(PyObject* self, PyObject* args) {
+    PyObject* capsule;
+    if (!PyArg_ParseTuple(args, "O", &capsule)) {
+        return NULL;
+    }
+    
+    absptr_t absptr = (absptr_t)PyCapsule_GetPointer(capsule, "absptr_t");
+    if (absptr == NULL) {
+        return NULL;  // PyCapsule_GetPointer sets the error
+    }
+    
+    relptr_t relptr = abs2rel(absptr);
+    return PyLong_FromSize_t(relptr);
+}
+
+
+static PyObject* shm_close(PyObject* self, PyObject* args) {
+    shclose();
+    Py_RETURN_NONE;
+}
+
+// Take a python object and a schema, convert it to voidstar, write the
+// voidstar to the shared memory pool, and return the relative pointer as an
+// integer.
+static PyObject* to_shm(PyObject* self, PyObject* args) {
+  PyObject* obj;
+  const char* schema_str;
+
+  if (!PyArg_ParseTuple(args, "Os", &obj, &schema_str)) {
+      return NULL;
+  }
+
+  Schema* schema = parse_schema(&schema_str);
+
+  void* voidstar = toAnything(NULL, schema, obj);
+
+  free_schema(schema);
+
+  relptr_t relptr = abs2rel(voidstar);
+  return PyLong_FromSize_t(relptr);
+}
+
+// Takes a relative pointer as an integer and a schema, looks up the voidstar in
+// the shared memory pool, convert it to a python object, and return it
+static PyObject* from_shm(PyObject* self, PyObject* args) {
+  size_t relptr;
+  const char* schema_str;
+
+  if (!PyArg_ParseTuple(args, "ks", &relptr, &schema_str)) {
+      return NULL;
+  }
+
+  Schema* schema = parse_schema(&schema_str);
+
+  absptr_t voidstar = rel2abs(relptr);
+
+  PyObject* obj = fromAnything(schema, voidstar);
+
+  free_schema(schema);
+    
+  return obj;
+}
+
 static PyMethodDef Methods[] = {
-    {"to_mesgpack",    to_mesgpack,    METH_VARARGS, "Serialize a voidstar to MessagePack data"},
-    {"from_mesgpack",  from_mesgpack,  METH_VARARGS, "Deserialize MessagePack data to voidstar"},
-    {"to_voidstar",   to_voidstar,   METH_VARARGS, "Convert python data to voidstar"},
+    {"to_mesgpack", to_mesgpack, METH_VARARGS, "Serialize a voidstar to MessagePack data"},
+    {"from_mesgpack", from_mesgpack, METH_VARARGS, "Deserialize MessagePack data to voidstar"},
+    {"to_voidstar", to_voidstar, METH_VARARGS, "Convert python data to voidstar"},
     {"from_voidstar", from_voidstar, METH_VARARGS, "Convert voidstar to python data"},
     {"py_to_mesgpack", py_to_mesgpack, METH_VARARGS, "Convert python data to mesgpack"},
     {"mesgpack_to_py", mesgpack_to_py, METH_VARARGS, "Convert mesgpack to python data"},
+    {"shm_rel2abs", shm_rel2abs, METH_VARARGS, "Convert a relative shared memory pointer to an absolute pointer to process memory"},
+    {"shm_abs2rel", shm_abs2rel, METH_VARARGS, "Convert an absolute pointer to process memory to a relative shared memory pointer"},
+    {"shm_start", shm_start, METH_VARARGS, "Initialize the shared memory pool"},
+    {"shm_close", shm_close, METH_VARARGS, "Close shared memory pool"},
+    {"to_shm", to_shm, METH_VARARGS, "Write python object to memory pool and return a relative pointer"},
+    {"from_shm", from_shm, METH_VARARGS, "Create a python object from a memory pool relative pointer"},
     {NULL, NULL, 0, NULL} // this is a sentinel value
 };
 
-static struct PyModuleDef pympack = {
+static struct PyModuleDef pymorloc = {
     PyModuleDef_HEAD_INIT,
-    "pympack",
+    "pymorloc",
     "Python interface to Morloc binary and MessagePack data",
     -1,
     Methods
 };
 
-PyMODINIT_FUNC PyInit_pympack(void) {
-    return PyModule_Create(&pympack);
+PyMODINIT_FUNC PyInit_pymorloc(void) {
+    return PyModule_Create(&pymorloc);
 }

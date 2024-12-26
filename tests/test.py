@@ -150,11 +150,14 @@ test_cases = [
     ("Medium f4 array", "af4", [float(x) for x in range(100000)]),
     ("Medium f8 array", "af8", [float(x) for x in range(100000)]),
 
+    ("List of lists i32", "aai4", [[43844,10898,9190,61230,12112],[14006,48712,16642,28520,59094],[20092,33880,6484,2220,25856],[36284,55368,37892,56546,46220]]),
+
     ("Large integer array of positives", "ai4", list(range(1000000))),
 
     ("Empty float array", "af8", []),
     ("Single float array", "af8", [float(1)]),
     ("Single float array", "af8", [-3-2,-1,0,1,2,3]),
+    ("float list of lists", "aaf8", [[-3],[1,2,3]]),
     ("Large float array with negatives", "af8", [float(x) for x in list(range(10000)) + [-1 * i for i in range(10000)]]),
     ("Very large float array", "af8", [float(x) for x in range(1000000)]),
 

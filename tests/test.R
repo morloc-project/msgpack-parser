@@ -1,4 +1,4 @@
-dyn.load("~/.morloc/lib/libmpackr.so")
+dyn.load("~/.morloc/lib/librmorloc.so")
 
 pack <- function(obj, schema) {
     .Call("to_mesgpack", obj, schema)

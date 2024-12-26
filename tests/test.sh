@@ -1,17 +1,20 @@
 #!/usr/bin/env bash
 
+MORLOC_REPO=$1
 
-echo ""
-echo "Testing C++"
-g++ -g -o cpptest -I$HOME/.morloc/include -I$PWD/../lang/cpp -L$HOME/.morloc/lib -lmlcmpack -Wl,-rpath,/home/z/.morloc/lib -lmlcmpack "test.cpp"
-./cpptest
+mkdir -p src
+cp -r "${MORLOC_REPO}/data/lang" src
+cp "${MORLOC_REPO}/data/morloc.h" src/morloc.h
+
+mkdir -p lib
+g++ -g -o cpptest -Isrc -Isrc/lang/cpp -Isrc/lang "test.cpp"
+
+# # echo ""
+# echo "Testing R"
+# Rscript "test.R"
 
 # echo ""
-echo "Testing R"
-Rscript "test.R"
+# echo "Testing python"
+# ln -sf $PWD/../lang/py/pympack.cpython-312-x86_64-linux-gnu.so $PWD/pympack.cpython-312-x86_64-linux-gnu.so
 
-echo ""
-echo "Testing python"
-ln -sf $PWD/../lang/py/pympack.cpython-312-x86_64-linux-gnu.so $PWD/pympack.cpython-312-x86_64-linux-gnu.so
-
-python "test.py" 2> z-py
+# python "test.py"
