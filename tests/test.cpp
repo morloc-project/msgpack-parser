@@ -73,6 +73,14 @@ bool operator==(const Person& lhs, const Person& rhs) {
     return (lhs.name == rhs.name) && (lhs.age == rhs.age);
 }
 
+size_t shmSize(const Schema* schema, const Person& data)
+{
+    size_t size = 0;
+    size += shmSize(schema->parameters[0], data.name);
+    size += shmSize(schema->parameters[1], data.age);
+    return size;
+}
+
 Person fromAnything(const Schema* schema, const void* anything, Person* dummy = nullptr)
 {
     Person person;
@@ -86,9 +94,9 @@ Person fromAnything(const Schema* schema, const void* anything, Person* dummy = 
     return person;
 }
 
-void* toAnything(void* dest, const Schema* schema, const Person& obj)
+void* toAnything(void* dest, void** cursor, const Schema* schema, const Person& obj)
 {
-    return toAnything(dest, schema, std::make_tuple(obj.name, obj.age));
+    return toAnything(dest, cursor, schema, std::make_tuple(obj.name, obj.age));
 }
 
 
@@ -103,6 +111,14 @@ bool operator==(const Person2& lhs, const Person2& rhs) {
     return (lhs.name == rhs.name) && (lhs.age == rhs.age) && (lhs.weight == rhs.weight);
 }
 
+size_t shmSize(const Schema* schema, const Person2& data)
+{
+    size_t size = 0;
+    size += shmSize(schema->parameters[0], data.name);
+    size += shmSize(schema->parameters[1], data.age);
+    size += shmSize(schema->parameters[2], data.weight);
+    return size;
+}
 
 Person2 fromAnything(const Schema* schema, const void* anything, Person2* dummy = nullptr)
 {
@@ -120,9 +136,9 @@ Person2 fromAnything(const Schema* schema, const void* anything, Person2* dummy 
     return person;
 }
 
-void* toAnything(void* dest, const Schema* schema, const Person2& obj)
+void* toAnything(void* dest, void** cursor, const Schema* schema, const Person2& obj)
 {
-    return toAnything(dest, schema, std::make_tuple(obj.name, obj.age, obj.weight));
+    return toAnything(dest, cursor, schema, std::make_tuple(obj.name, obj.age, obj.weight));
 }
 
 
@@ -138,6 +154,16 @@ struct PersonPlus {
 template<typename T>
 bool operator==(const PersonPlus<T>& lhs, const PersonPlus<T>& rhs) {
     return (lhs.name == rhs.name) && (lhs.age == rhs.age) && (lhs.info == rhs.info);
+}
+
+template<typename T>
+size_t shmSize(const Schema* schema, const PersonPlus<T>& data)
+{
+    size_t size = 0;
+    size += shmSize(schema->parameters[0], data.name);
+    size += shmSize(schema->parameters[1], data.age);
+    size += shmSize(schema->parameters[2], data.info);
+    return size;
 }
 
 template<typename T>
@@ -158,9 +184,9 @@ PersonPlus<T> fromAnything(const Schema* schema, const void* anything, PersonPlu
 }
 
 template<typename T>
-void* toAnything(void* dest, const Schema* schema, const PersonPlus<T>& obj)
+void* toAnything(void* dest, void** cursor, const Schema* schema, const PersonPlus<T>& obj)
 {
-    return toAnything(dest, schema, std::make_tuple(obj.name, obj.age, obj.info));
+    return toAnything(dest, cursor, schema, std::make_tuple(obj.name, obj.age, obj.info));
 }
 
 
@@ -178,7 +204,7 @@ void generic_test(const std::string& description, const std::string& schema_str,
         const Schema* schema = parse_schema(&schema_ptr);
 
         // convert C++ data to morloc voidstar
-        void* voidstar_in = toAnything(NULL, schema, data);
+        void* voidstar_in = toAnything(schema, data);
 
         // convert voidstar to MessagePack
         char* mesgpack_ptr;
@@ -205,20 +231,23 @@ void generic_test(const std::string& description, const std::string& schema_str,
 
 int main() {
 
+    shinit("morloc-cpptest", 0, 0x100);
+
     Person alice;
     alice.name = "Alice";
     alice.age = 42;
-
+  
     Person2 bob;
     bob.name = "Bob";
     bob.age = 42;
     bob.weight = 45;
-
+  
     PersonPlus<double> alice2;
     alice2.name = "Alice";
     alice2.age = 42;
     alice2.info = 6.9;
-
+  
+  
     generic_test<uint8_t>("Test boolean", "b", true);
     generic_test("Test float64", "f8", (double)3.14);
     generic_test("Test float32", "f4", (float)3.14);
@@ -233,17 +262,19 @@ int main() {
     generic_test("Test uint64", "u8", (uint64_t)14);
     generic_test("Test uint64 max", "u8", (uint64_t)0xffffffffffffffff);
 
-    generic_test("Test string", "s", std::string("Helloooo"));
+    generic_test("Test string", "s", std::string("cat"));
+    generic_test("Test string array", "as", std::vector<std::string>{"Helloooo", "goooood bye", "fuuuuuckkkk you"});
+  
     generic_test("Test raw binary", "au1", std::vector<uint8_t>{0x01, 0x02, 0x03});
     generic_test("Test null susan", "au1", std::vector<uint8_t>{0x00, 0x00, 0x73, 0x75, 0x73, 0x61, 0x6E});
-
+  
     generic_test("Test array of booleans", "ab", std::vector<uint8_t>{true,false,true});
     generic_test("Test array of integers", "ai4", std::vector<int32_t>{1, 2, 3, 4, 5});
     generic_test("Test array of float", "af4", std::vector<float>{1.0, 2.0, 3.0});
     generic_test("Test array of doubles", "af8", std::vector<double>{1.0, 2.0, 3.0});
     generic_test("Test array of arrays of booleans", "aab", std::vector<std::vector<uint8_t>>{std::vector<uint8_t>{true,false,true}, std::vector<uint8_t>{false,true}});
     generic_test("Test array of arrays of int32", "aai4", std::vector<std::vector<int32_t>>{std::vector<int32_t>{99,-42}, std::vector<int32_t>{12,-4}});
-
+  
     generic_test("Test tuple of int and array of floats", "t2i4af8", std::make_tuple(42, std::vector<double>{1.1, 2.2, 3.3}));
     generic_test("tuple 1a", "t2au2au1", std::make_tuple(std::vector<uint16_t>{1,300,3}, std::vector<uint8_t>{1,2,3}));
     generic_test("tuple 1b", "t3au2au1au2", std::make_tuple(std::vector<uint16_t>{1,300,3}, std::vector<uint8_t>{1,2,3}, std::vector<uint16_t>{1,300,3}));
@@ -260,9 +291,9 @@ int main() {
     generic_test("tuple 4d", "t2su4", std::make_tuple(std::string("Bob"), (uint32_t)42));
     generic_test("tuple 4e", "t4i4bf8s", std::make_tuple(44, true, 42.7, std::string("Bob")));
     generic_test("tuple 4f", "t3su4u4", std::make_tuple(std::string("Bob"), (uint32_t)42, (uint32_t)56));
-
+  
     generic_test("tuple 5", "at2abb", std::vector<std::tuple<std::vector<uint8_t>,uint8_t>>{std::make_tuple(std::vector<uint8_t>{true, false}, true)});
-
+  
     generic_test("exhaustive edge cases for i32", "ai4", generate_integers());
     generic_test("range(1500) au1", "au1", range<uint8_t>(  0, 1, 1500));
     generic_test("range(1500) au2", "au2", range<uint16_t>( 0, 1, 1500));
@@ -272,10 +303,12 @@ int main() {
     generic_test("range(1500) ai2", "ai2", range<int16_t>(  0, 1, 1500));
     generic_test("range(1500) ai4", "ai4", range<int32_t>(  0, 1, 1500));
     generic_test("range(1500) ai8", "ai8", range<int64_t>(  0, 1, 1500));
-
+  
     generic_test("Test Alice", "m24names3ageu4", alice);
     generic_test("Test Bob weighted", "m34names3ageu46weightu4", bob);
     generic_test("Test Alice generic", "m34names3agei44infof8", alice2);
+  
+    shclose();
 
     return 0;
 }

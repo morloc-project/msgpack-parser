@@ -8,6 +8,7 @@ cp "${MORLOC_REPO}/data/morloc.h" src/morloc.h
 
 mkdir -p lib
 g++ -g -o cpptest -Isrc -Isrc/lang/cpp -Isrc/lang "test.cpp"
+./cpptest
 
 # # echo ""
 # echo "Testing R"
