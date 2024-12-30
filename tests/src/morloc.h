@@ -1126,7 +1126,7 @@ shm_t* shinit(const char* shm_basename, size_t volume_index, size_t shm_size) {
     }
 
     // Adjust sizes based on whether we created a new object or opened an existing one
-    full_size = created ? full_size : sb.st_size;
+    full_size = created ? full_size : (size_t)sb.st_size;
     shm_size = full_size - sizeof(shm_t);
 
     // Cast the mapped memory to our shared memory structure
@@ -2136,7 +2136,7 @@ int pack(const void* mlc, const char* schema_str, char** mpk, size_t* mpk_size) 
 // nested msg_sizers
 size_t msg_size(const char* mgk, size_t mgk_size, const Schema* schema);
 size_t msg_size_r(const Schema* schema, mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token);
-size_t msg_size_bytes(const Schema* schema, mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token);
+size_t msg_size_bytes(mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token);
 size_t msg_size_array(const Schema* schema, mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token);
 size_t msg_size_tuple(const Schema* schema, mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token);
 size_t msg_size_map(const Schema* schema, mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token);
@@ -2154,7 +2154,6 @@ size_t msg_size_bytes(mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_
 }
 
 size_t msg_size_array(const Schema* schema, mpack_tokbuf_t* tokbuf, const char** buf_ptr, size_t* buf_remaining, mpack_token_t* token){
-    size_t element_size = schema->width;
     mpack_read(tokbuf, buf_ptr, buf_remaining, token);
     size_t array_length = token->length;
     size_t size = sizeof(Array);
@@ -2168,7 +2167,6 @@ size_t msg_size_tuple(const Schema* schema, mpack_tokbuf_t* tokbuf, const char**
     // parse the mesgpack tuple
     mpack_read(tokbuf, buf_ptr, buf_remaining, token);
     assert(token->length == schema->size); 
-    size_t offset = 0;
     size_t size = 0;
     for(size_t i = 0; i < schema->size; i++){
         size += msg_size_r(schema->parameters[i], tokbuf, buf_ptr, buf_remaining, token);

@@ -1,6 +1,8 @@
-import pympack as mp
+import pymorloc as mlc
 import time
 from colorama import Fore, Style, init
+
+mlc.shm_start("pytest", 0x100)
 
 # Initialize colorama
 init(autoreset=True)
@@ -186,31 +188,28 @@ for description, schema, data in test_cases:
     start_time = time.time()
 
     try:
-        voidstar = mp.to_voidstar(data, schema)
+        voidstar = mlc.to_voidstar(data, schema)
     except Exception as e:
         print(f"{description:<{max_width}} {Fore.RED}fail to void{Style.RESET_ALL}")
         print(f"Error in pack: {e}")
         continue
 
     try:
-        msgpack_data = mp.to_msgpack(voidstar, schema)
+        mesgpack_data = mlc.to_mesgpack(voidstar, schema)
     except Exception as e:
-        print(f"{description:<{max_width}} {Fore.RED}fail to msgpack {Style.RESET_ALL}")
+        print(f"{description:<{max_width}} {Fore.RED}fail to mesgpack {Style.RESET_ALL}")
         print(f"Error in pack: {e}")
         continue
 
-    #### This one is certainly wrong
-    #  print(f"result_data = {msgpack_data.hex(' ')}")
-
     try:
-        result_data = mp.from_msgpack(msgpack_data, schema)
+        result_data = mlc.from_mesgpack(mesgpack_data, schema)
     except Exception as e:
-        print(f"{description:<{max_width}} {Fore.RED}fail from msgpack{Style.RESET_ALL}")
+        print(f"{description:<{max_width}} {Fore.RED}fail from mesgpack{Style.RESET_ALL}")
         print(f"Error in unpack: {e}")
         continue
 
     try:
-        result = mp.from_voidstar(result_data, schema)
+        result = mlc.from_voidstar(result_data, schema)
     except Exception as e:
         print(f"{description:<{max_width}} {Fore.RED}fail from void{Style.RESET_ALL}")
         print(f"Error in pack: {e}")
@@ -224,6 +223,5 @@ for description, schema, data in test_cases:
         print(f"{description:<{max_width}} {Fore.GREEN}pass{Style.RESET_ALL} ({elapsed_time:.4f}s)")
     else:
         print(f"{description:<{max_width}} {Fore.RED}fail{Style.RESET_ALL}")
-        #  print(f"Error: Result does not match expected data")
-        #  print(f"Exected: {str(data)}")
-        #  print(f"Founded: {str(result)}")
+
+mlc.shm_close()

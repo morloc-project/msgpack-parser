@@ -24,22 +24,22 @@ T mpk_unpack(const std::vector<char>& packed_data, const std::string& schema_str
 
 // Forward declarations
 template<typename T>
-size_t shmSize(const Schema* schema, const T& data);
+size_t get_shm_size(const Schema* schema, const T& data);
 
 // Specialization for nullptr_t (NIL)
-size_t shmSize(const Schema* schema, const std::nullptr_t&) {
+size_t get_shm_size(const Schema* schema, const std::nullptr_t&) {
     return sizeof(int8_t);
 }
 
 // Primitives
 template<typename Primitive>
-size_t shmSize(const Schema* schema, const Primitive& data) {
+size_t get_shm_size(const Schema* schema, const Primitive& data) {
     return schema->width;
 }
 
 // Specialization for std::vector (array)
 template<typename T>
-size_t shmSize(const Schema* schema, const std::vector<T>& data) {
+size_t get_shm_size(const Schema* schema, const std::vector<T>& data) {
     size_t total_size = schema->width;
     switch(schema->parameters[0]->type){
         case MORLOC_NIL:
@@ -61,23 +61,23 @@ size_t shmSize(const Schema* schema, const std::vector<T>& data) {
         case MORLOC_TUPLE:
         case MORLOC_MAP:
             for(size_t i = 0; i < data.size(); i++){
-               total_size += shmSize(schema->parameters[0], data[i]); 
+               total_size += get_shm_size(schema->parameters[0], data[i]); 
             }
             break;
     }
     return total_size;
 }
 
-size_t shmSize(const Schema* schema, const std::string& data) {
+size_t get_shm_size(const Schema* schema, const std::string& data) {
     return schema->width + data.size();
 }
 
-size_t shmSize(void* dest, const Schema* schema, const char* data) {
+size_t get_shm_size(void* dest, const Schema* schema, const char* data) {
     return schema->width + strlen(data);
 }
 
 template<typename... Args>
-size_t shmSize(const Schema* schema, const std::tuple<Args...>& data) {
+size_t get_shm_size(const Schema* schema, const std::tuple<Args...>& data) {
     return createTupleShmSizeHelper(schema, data, std::index_sequence_for<Args...>{});
 }
 
@@ -85,7 +85,7 @@ template<typename Tuple, size_t... Is>
 size_t createTupleShmSizeHelper(const Schema* schema, const Tuple& data, std::index_sequence<Is...>) {
     size_t total_size = 0;
     (void)std::initializer_list<int>{(
-        total_size += shmSize(schema->parameters[Is], std::get<Is>(data)),
+        total_size += get_shm_size(schema->parameters[Is], std::get<Is>(data)),
         0
     )...};
     return total_size;
@@ -96,7 +96,7 @@ size_t createTupleShmSizeHelper(const Schema* schema, const Tuple& data, std::in
 template<typename T>
 void* toAnything(const Schema* schema, const T& data){
     // Calculate the total required memory space
-    size_t total_size = shmSize(schema, data);
+    size_t total_size = get_shm_size(schema, data);
 
     // Allocate this space in shared memory
     void* dest = shmalloc(total_size);
