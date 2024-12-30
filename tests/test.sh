@@ -10,20 +10,20 @@ cp -r "${MORLOC_REPO}/data/lang" src
 cp "${MORLOC_REPO}/data/morloc.h" src/morloc.h
 mkdir -p lib
 
-# echo "Build C++"
-# g++ -g -o cpptest -Isrc -Isrc/lang/cpp "test.cpp"
-# echo "Testing C++"
-# ./cpptest
+echo "Build C++"
+g++ -g -o cpptest -Isrc -Isrc/lang/cpp "test.cpp"
+echo "Testing C++"
+./cpptest
 
-# echo "Building R"
-# mkdir -p rbuild
-# cp src/morloc.h src/lang/r/rmorloc.c rbuild
-# cd rbuild
-# R CMD SHLIB -o ../lib/librmorloc.so rmorloc.c
-# cd ..
-# rm -rf rbuild
-# echo "Testing R"
-# Rscript "test.R"
+echo "Building R"
+mkdir -p rbuild
+cp src/morloc.h src/lang/r/rmorloc.c rbuild
+cd rbuild
+R CMD SHLIB -o ../lib/librmorloc.so rmorloc.c
+cd ..
+rm -rf rbuild
+echo "Testing R"
+Rscript "test.R"
 
 echo ""
 echo "Building python"

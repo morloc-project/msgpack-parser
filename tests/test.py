@@ -139,6 +139,8 @@ test_cases = [
     ("Small integer array with negatives", "ai4", list(range(10)) + [-1 * i for i in range(10)]),
     ("Large integer array with negatives", "ai4", list(range(500000)) + [-1 * i for i in range(500000)] + []),
 
+    ("Small string array", "as", [str(x) for x in range(3)]),
+
     ("Medium bool array", "ab", [x % 2 == 0 for x in range(1000000)]),
     ("Medium string array", "as", [str(x) for x in range(5000)]),
     ("Medium u1 array", "au1", b'\x01' * 1500),
@@ -223,5 +225,13 @@ for description, schema, data in test_cases:
         print(f"{description:<{max_width}} {Fore.GREEN}pass{Style.RESET_ALL} ({elapsed_time:.4f}s)")
     else:
         print(f"{description:<{max_width}} {Fore.RED}fail{Style.RESET_ALL}")
+        print(f"expected: {data!s}")
+        print(f"observed: {result!s}")
+
+    # Deleting all objects ensures that the shared memory is freed
+    del result
+    del result_data
+    del voidstar
+    del mesgpack_data
 
 mlc.shm_close()

@@ -277,7 +277,6 @@ std::vector<char> mpk_pack(const T& data, const std::string& schema_str) {
     std::vector<char> result(msgpack_data, msgpack_data + msg_size);
 
     free_schema(schema);
-    // free_voidstar(voidstar);
 
     return result;
 }

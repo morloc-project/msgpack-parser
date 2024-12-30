@@ -933,7 +933,7 @@ shm_t* shinit(const char* shm_basename, size_t volume_index, size_t shm_size);
 void shclose();
 void* shmalloc(size_t size);
 void* shmemcpy(void* dest, size_t size);
-int shfree(void* ptr);
+int shfree(absptr_t ptr);
 void* shcalloc(size_t nmemb, size_t size);
 void* shrealloc(void* ptr, size_t size);
 size_t total_shm_size();
@@ -1515,6 +1515,14 @@ void* shrealloc(void* ptr, size_t size) {
 //
 // return 0 for success
 int shfree(absptr_t ptr) {
+
+    // Check if the pointer is accessible
+    if (ptr == NULL) {
+        errno = EFAULT;
+        perror("Invalid or inaccessible shared memory pool pointer - perhaps the pool is closed?");
+        return 1;
+    }
+
     block_header_t* blk = (block_header_t*)((char*)ptr - sizeof(block_header_t));
 
     if(!blk){
@@ -1945,31 +1953,6 @@ void free_schema(Schema* schema) {
     // Finally, free the schema itself
     free(schema);
 }
-
-int free_voidstar(absptr_t data, Schema* schema){
-    // switch(schema->type){
-    //     case MORLOC_NIL:
-    //     case MORLOC_BOOL:
-    //     case MORLOC_SINT8:
-    //     case MORLOC_SINT16:
-    //     case MORLOC_SINT32:
-    //     case MORLOC_SINT64:
-    //     case MORLOC_UINT8:
-    //     case MORLOC_UINT16:
-    //     case MORLOC_UINT32:
-    //     case MORLOC_UINT64:
-    //     case MORLOC_FLOAT32:
-    //     case MORLOC_FLOAT64:
-    //         shfree(data);
-    //         return 0;
-    //     case MORLOC_STRING:
-    //     case MORLOC_ARRAY:
-    //     case MORLOC_TUPLE:
-    //     case MORLOC_MAP:
-    // }
-    return 1;
-}
-
 
 //  The main function for writing MessagePack
 int pack_data(

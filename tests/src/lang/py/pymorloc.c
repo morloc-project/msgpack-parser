@@ -73,7 +73,7 @@ static PyObject* from_mesgpack(PyObject* self, PyObject* args) {
 
     PyObject* voidstar_capsule = PyCapsule_New(voidstar, "absptr_t", voidstar_destructor);
     if (!voidstar_capsule) {
-        free(voidstar);  // Or use appropriate deallocation function
+        shfree(voidstar);  // Or use appropriate deallocation function
         return NULL;
     }
 
@@ -478,7 +478,7 @@ int to_voidstar_r(void* dest, void** cursor, const Schema* schema, PyObject* obj
 
                 Array* result = (Array*)dest;
                 result->size = (size_t)size;
-                result->data = abs2rel((void*)((char*)dest + sizeof(Array)));
+                result->data = abs2rel(*cursor);
 
                 if (PyList_Check(obj)) {
                     // Fixed size width of each element (variable size data will

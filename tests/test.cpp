@@ -73,11 +73,11 @@ bool operator==(const Person& lhs, const Person& rhs) {
     return (lhs.name == rhs.name) && (lhs.age == rhs.age);
 }
 
-size_t shmSize(const Schema* schema, const Person& data)
+size_t get_shm_size(const Schema* schema, const Person& data)
 {
     size_t size = 0;
-    size += shmSize(schema->parameters[0], data.name);
-    size += shmSize(schema->parameters[1], data.age);
+    size += get_shm_size(schema->parameters[0], data.name);
+    size += get_shm_size(schema->parameters[1], data.age);
     return size;
 }
 
@@ -111,12 +111,12 @@ bool operator==(const Person2& lhs, const Person2& rhs) {
     return (lhs.name == rhs.name) && (lhs.age == rhs.age) && (lhs.weight == rhs.weight);
 }
 
-size_t shmSize(const Schema* schema, const Person2& data)
+size_t get_shm_size(const Schema* schema, const Person2& data)
 {
     size_t size = 0;
-    size += shmSize(schema->parameters[0], data.name);
-    size += shmSize(schema->parameters[1], data.age);
-    size += shmSize(schema->parameters[2], data.weight);
+    size += get_shm_size(schema->parameters[0], data.name);
+    size += get_shm_size(schema->parameters[1], data.age);
+    size += get_shm_size(schema->parameters[2], data.weight);
     return size;
 }
 
@@ -157,12 +157,12 @@ bool operator==(const PersonPlus<T>& lhs, const PersonPlus<T>& rhs) {
 }
 
 template<typename T>
-size_t shmSize(const Schema* schema, const PersonPlus<T>& data)
+size_t get_shm_size(const Schema* schema, const PersonPlus<T>& data)
 {
     size_t size = 0;
-    size += shmSize(schema->parameters[0], data.name);
-    size += shmSize(schema->parameters[1], data.age);
-    size += shmSize(schema->parameters[2], data.info);
+    size += get_shm_size(schema->parameters[0], data.name);
+    size += get_shm_size(schema->parameters[1], data.age);
+    size += get_shm_size(schema->parameters[2], data.info);
     return size;
 }
 
