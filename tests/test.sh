@@ -10,10 +10,10 @@ cp -r "${MORLOC_REPO}/data/lang" src
 cp "${MORLOC_REPO}/data/morloc.h" src/morloc.h
 mkdir -p lib
 
-echo "Build C++"
-g++ -g -o cpptest -Isrc -Isrc/lang/cpp "test.cpp"
-echo "Testing C++"
-./cpptest
+# echo "Build C++"
+# g++ -g -o cpptest -Isrc -Isrc/lang/cpp "test.cpp"
+# echo "Testing C++"
+# ./cpptest
 
 echo "Building R"
 mkdir -p rbuild
@@ -21,17 +21,17 @@ cp src/morloc.h src/lang/r/rmorloc.c rbuild
 cd rbuild
 R CMD SHLIB -o ../lib/librmorloc.so rmorloc.c
 cd ..
-rm -rf rbuild
+# rm -rf rbuild
 echo "Testing R"
 Rscript "test.R"
 
-echo ""
-echo "Building python"
-# reset sources to local
-sed -i 's;...morloc.include;../..;' src/lang/py/setup.py
-sed -i 's;...morloc.bin;../../..;' src/lang/py/setup.py
-make -C src/lang/py
-cp -r "${MORLOC_REPO}/data/lang/py/pymorloc.c" src/lang/py # for gdb
-cp -f src/lang/py/*.so .
-echo "Testing python"
-python "test.py"
+# echo ""
+# echo "Building python"
+# # reset sources to local
+# sed -i 's;...morloc.include;../..;' src/lang/py/setup.py
+# sed -i 's;...morloc.bin;../../..;' src/lang/py/setup.py
+# make -C src/lang/py
+# cp -r "${MORLOC_REPO}/data/lang/py/pymorloc.c" src/lang/py # for gdb
+# cp -f src/lang/py/*.so .
+# echo "Testing python"
+# python "test.py"

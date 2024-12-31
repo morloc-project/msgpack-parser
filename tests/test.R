@@ -1,4 +1,4 @@
-dyn.load("~/.morloc/lib/librmorloc.so")
+dyn.load("lib/librmorloc.so")
 
 pack <- function(obj, schema) {
     .Call("to_mesgpack", obj, schema)
@@ -7,6 +7,23 @@ pack <- function(obj, schema) {
 unpack <- function(packed, schema) {
     .Call("from_mesgpack", packed, schema)
 }
+
+shm_start <- function(shm_basename, shm_size){
+    .Call("shm_start", shm_basename, shm_size)
+}
+
+shm_close <- function(){
+    .Call("shm_close")
+}
+
+to_shm <- function(x, schema_str){
+    .Call("to_shm", x, schema_str)
+}
+
+from_shm <- function(relptr, schema_str){
+    .Call("from_shm", relptr, schema_str)
+}
+
 
 # Function to print colored text
 color_text <- function(text, color) {
@@ -103,6 +120,8 @@ test_cases <- list(
 nfails <- 0
 ntotal <- length(test_cases)
 
+shm_start("rtest", 0x100)
+
 for (case in test_cases) {
     test_description <- case[[1]]
     schema_str <- case[[2]]
@@ -134,3 +153,5 @@ for (case in test_cases) {
 }
 
 cat(nfails, "/", ntotal, " failed\n")
+
+shm_close()

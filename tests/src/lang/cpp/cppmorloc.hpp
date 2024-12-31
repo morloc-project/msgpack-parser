@@ -260,7 +260,7 @@ Tuple fromTupleAnythingHelper(
 template<typename T>
 std::vector<char> mpk_pack(const T& data, const std::string& schema_str) {
     const char* schema_ptr = schema_str.c_str();
-    const Schema* schema = parse_schema(&schema_ptr);
+    Schema* schema = parse_schema(&schema_ptr);
 
     // Create Anything* from schema and data
     void* voidstar = toAnything(schema, data);
@@ -284,7 +284,7 @@ std::vector<char> mpk_pack(const T& data, const std::string& schema_str) {
 template<typename T>
 T mpk_unpack(const std::vector<char>& packed_data, const std::string& schema_str) {
     const char* schema_ptr = schema_str.c_str();
-    const Schema* schema = parse_schema(&schema_ptr);
+    Schema* schema = parse_schema(&schema_ptr);
 
     void* voidstar = nullptr;
     int unpack_result = unpack_with_schema(packed_data.data(), packed_data.size(), schema, &voidstar);
@@ -296,7 +296,7 @@ T mpk_unpack(const std::vector<char>& packed_data, const std::string& schema_str
     T x = fromAnything(schema, voidstar, static_cast<T*>(nullptr));
 
     free_schema(schema);
-    // free_voidstar(voidstar);
+    shfree(voidstar);
 
     return x;
 }
