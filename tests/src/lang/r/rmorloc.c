@@ -92,7 +92,7 @@ size_t get_shm_size(const Schema* schema, SEXP obj) {
                 }
                 for (R_xlen_t i = 0; i < array_size; ++i) {
                     SEXP item = VECTOR_ELT(obj, i);
-                    size += get_shm_size(schema->parameters[0], item);
+                    size += get_shm_size(schema->parameters[i], item);
                 }
                 return size;
             }

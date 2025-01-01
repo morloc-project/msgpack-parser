@@ -69,6 +69,7 @@ typedef struct Person{
   uint32_t age;
 } Person;
 
+// Added to allow comparisons in testing
 bool operator==(const Person& lhs, const Person& rhs) {
     return (lhs.name == rhs.name) && (lhs.age == rhs.age);
 }
